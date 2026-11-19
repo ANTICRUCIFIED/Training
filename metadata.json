@@ -1,0 +1,8 @@
+{
+  "name": "Cadence Training Platform",
+  "description": "Role-based Sales and Operations training platform with Google OAuth, Google Drive video modules, Excel-uploaded questionnaires, sequential progression, and engagement analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,316 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive Helpers
+    // -------------------------------------------------------------------------
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmailId(email) {
+      return email is string && email.size() >= 5 && email.size() <= 254 && email.matches('^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.size() >= 5
+        && request.auth.token.email.size() <= 254;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isBootstrapAdmin() {
+      return isSignedIn() && userEmail() in ['sankhyayan@gmail.com', 'racforge@gmail.com'];
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin()
+        || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(userEmail())));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasTeamAccessRecord() {
+      return exists(/databases/$(database)/documents/teamAccess/$(userEmail()));
+    }
+
+    function teamAccessData() {
+      return get(/databases/$(database)/documents/teamAccess/$(userEmail())).data;
+    }
+
+    function hasSegmentAccess(segment) {
+      return hasTeamAccessRecord() && (
+        (segment == 'operations' && teamAccessData().operationsAccess == true) ||
+        (segment == 'sales' && teamAccessData().salesAccess == true) ||
+        (segment == 'both' && (teamAccessData().operationsAccess == true || teamAccessData().salesAccess == true))
+      );
+    }
+
+    function isValidSegment(segment) {
+      return segment is string && segment in ['sales', 'operations', 'both'];
+    }
+
+    // -------------------------------------------------------------------------
+    // Entity Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidAdminUser(data, emailId) {
+      return data.keys().hasAll(['email', 'addedBy', 'createdAt'])
+        && data.keys().hasOnly(['email', 'addedBy', 'createdAt'])
+        && isValidEmailId(data.email)
+        && data.email == emailId
+        && data.addedBy is string && data.addedBy.size() >= 1 && data.addedBy.size() <= 128
+        && data.addedBy == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTeamAccess(data, emailId) {
+      return data.keys().hasAll(['email', 'operationsAccess', 'salesAccess', 'updatedBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'operationsAccess', 'salesAccess', 'updatedBy', 'createdAt', 'updatedAt'])
+        && isValidEmailId(data.email)
+        && data.email == emailId
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
+        && data.operationsAccess is bool
+        && data.salesAccess is bool
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedBy == request.auth.uid
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'acceptedLegalAt', 'acceptedLegalVersion', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isValidEmailId(data.email)
+        && data.email == userEmail()
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && (!('acceptedLegalAt' in data) || data.acceptedLegalAt is timestamp)
+        && (!('acceptedLegalVersion' in data) || (data.acceptedLegalVersion is string && data.acceptedLegalVersion.size() >= 1 && data.acceptedLegalVersion.size() <= 32))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTrainingVideo(data) {
+      return data.keys().hasAll(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 1000
+        && data.driveUrl is string && data.driveUrl.size() >= 10 && data.driveUrl.size() <= 500
+        && isValidId(data.driveFileId)
+        && isValidSegment(data.segment)
+        && data.orderIndex is number && data.orderIndex >= 0 && data.orderIndex <= 10000
+        && data.passingScore is number && data.passingScore >= 1 && data.passingScore <= 100
+        && data.questions is list && data.questions.size() <= 50
+        && (data.questions.size() == 0 || (
+          data.questions[0] is map
+          && data.questions[0].keys().hasAll(['question', 'options', 'correctIndex'])
+          && data.questions[0].keys().hasOnly(['question', 'options', 'correctIndex'])
+          && data.questions[0].question is string && data.questions[0].question.size() >= 1 && data.questions[0].question.size() <= 500
+          && data.questions[0].options is list && data.questions[0].options.size() == 4
+          && data.questions[0].options[0] is string && data.questions[0].options[0].size() <= 300
+          && data.questions[0].options[1] is string && data.questions[0].options[1].size() <= 300
+          && data.questions[0].options[2] is string && data.questions[0].options[2].size() <= 300
+          && data.questions[0].options[3] is string && data.questions[0].options[3].size() <= 300
+          && data.questions[0].correctIndex is number && data.questions[0].correctIndex >= 0 && data.questions[0].correctIndex <= 3
+        ))
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProgress(data) {
+      return data.keys().hasAll(['uid', 'userEmail', 'userName', 'videoId', 'segment', 'viewCount', 'watchSeconds', 'attempts', 'bestScore', 'lastScore', 'passed', 'lastAccessedAt', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'userEmail', 'userName', 'videoId', 'segment', 'viewCount', 'watchSeconds', 'attempts', 'bestScore', 'lastScore', 'passed', 'completedAt', 'lastAccessedAt', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidEmailId(data.userEmail)
+        && data.userEmail == userEmail()
+        && data.userName is string && data.userName.size() <= 120
+        && isValidId(data.videoId)
+        && isValidSegment(data.segment)
+        && data.viewCount is number && data.viewCount >= 0 && data.viewCount <= 100000
+        && data.watchSeconds is number && data.watchSeconds >= 0 && data.watchSeconds <= 10000000
+        && data.attempts is number && data.attempts >= 0 && data.attempts <= 10000
+        && data.bestScore is number && data.bestScore >= 0 && data.bestScore <= 100
+        && data.lastScore is number && data.lastScore >= 0 && data.lastScore <= 100
+        && data.passed is bool
+        && (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp)
+        && data.lastAccessedAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEngagementEvent(data) {
+      return data.keys().hasAll(['uid', 'userEmail', 'videoId', 'videoTitle', 'segment', 'eventType', 'score', 'watchSecondsDelta', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'userEmail', 'videoId', 'videoTitle', 'segment', 'eventType', 'score', 'watchSecondsDelta', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidEmailId(data.userEmail)
+        && data.userEmail == userEmail()
+        && isValidId(data.videoId)
+        && data.videoTitle is string && data.videoTitle.size() >= 1 && data.videoTitle.size() <= 200
+        && isValidSegment(data.segment)
+        && data.eventType is string && data.eventType in ['video_open', 'watch_heartbeat', 'quiz_submit', 'quiz_pass']
+        && data.score is number && data.score >= 0 && data.score <= 100
+        && data.watchSecondsDelta is number && data.watchSecondsDelta >= 0 && data.watchSecondsDelta <= 3600
+        && data.createdAt is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Rules
+    // -------------------------------------------------------------------------
+
+    // Admins Directory
+    match /admins/{emailId} {
+      allow get: if isValidEmailId(emailId) && (isAdmin() || (isSignedIn() && emailId == userEmail()));
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidEmailId(emailId)
+        && isValidAdminUser(incoming(), emailId)
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidEmailId(emailId) && !(emailId in ['sankhyayan@gmail.com', 'racforge@gmail.com']);
+    }
+
+    // Team Access Allowlist (Operations & Sales Windows)
+    match /teamAccess/{emailId} {
+      allow get: if isValidEmailId(emailId) && (isAdmin() || (isSignedIn() && emailId == userEmail()));
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidEmailId(emailId)
+        && isValidTeamAccess(incoming(), emailId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidEmailId(emailId)
+        && isValidTeamAccess(incoming(), emailId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'operationsAccess', 'salesAccess', 'updatedBy', 'updatedAt'])
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidEmailId(emailId);
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && (!('acceptedLegalAt' in incoming()) || incoming().acceptedLegalAt == request.time)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'acceptedLegalAt', 'acceptedLegalVersion', 'updatedAt'])
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && (!('acceptedLegalAt' in incoming()) || incoming().acceptedLegalAt == request.time || (('acceptedLegalAt' in existing()) && incoming().acceptedLegalAt == existing().acceptedLegalAt))
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Training Videos
+    match /videos/{videoId} {
+      allow get: if isValidId(videoId) && (isAdmin() || (isSignedIn() && hasSegmentAccess(existing().segment)));
+      allow list: if isAdmin() || (isSignedIn() && hasSegmentAccess(existing().segment));
+      allow create: if isAdmin()
+        && isValidId(videoId)
+        && isValidTrainingVideo(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(videoId)
+        && isValidTrainingVideo(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'updatedAt'])
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(videoId);
+    }
+
+    // Learner Video Progress
+    match /progress/{progressId} {
+      allow get: if isValidId(progressId) && (isAdmin() || (isSignedIn() && existing().uid == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(progressId)
+        && isValidProgress(incoming())
+        && progressId == (request.auth.uid + '_' + incoming().videoId)
+        && exists(/databases/$(database)/documents/videos/$(incoming().videoId))
+        && (isAdmin() || hasSegmentAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data.segment))
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().lastAccessedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(progressId)
+        && isValidProgress(incoming())
+        && existing().uid == request.auth.uid
+        && incoming().uid == existing().uid
+        && incoming().userEmail == existing().userEmail
+        && incoming().videoId == existing().videoId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().lastAccessedAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'segment', 'viewCount', 'watchSeconds', 'lastAccessedAt', 'updatedAt'])
+            && incoming().passed == existing().passed
+            && incoming().attempts == existing().attempts
+            && incoming().bestScore == existing().bestScore
+            && incoming().lastScore == existing().lastScore
+          )
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'segment', 'attempts', 'bestScore', 'lastScore', 'passed', 'completedAt', 'lastAccessedAt', 'updatedAt'])
+            && incoming().attempts >= existing().attempts
+            && incoming().bestScore >= existing().bestScore
+            && (existing().passed == false || incoming().passed == true)
+          )
+        );
+      allow delete: if isAdmin() && isValidId(progressId);
+    }
+
+    // Video Engagement Telemetry Events
+    match /engagementEvents/{eventId} {
+      allow get: if isValidId(eventId) && (isAdmin() || (isSignedIn() && existing().uid == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(eventId)
+        && isValidEngagementEvent(incoming())
+        && exists(/databases/$(database)/documents/videos/$(incoming().videoId))
+        && (isAdmin() || hasSegmentAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data.segment))
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(eventId);
+    }
+  }
+}

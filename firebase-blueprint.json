@@ -1,0 +1,403 @@
+{
+  "entities": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized administrator allowed to manage training modules, team email access lists, and view engagement analytics.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Lowercase email address of the admin.",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+        },
+        "addedBy": {
+          "type": "string",
+          "description": "UID of the admin who granted admin privileges.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin access was granted."
+        }
+      },
+      "required": ["email", "addedBy", "createdAt"]
+    },
+    "TeamAccess": {
+      "title": "TeamAccess",
+      "description": "Email-based allowlist entry granting a team member access to Operations and/or Sales training modules.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Lowercase Google account email address.",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Optional display label for the team member.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "operationsAccess": {
+          "type": "boolean",
+          "description": "Whether the user can access Operations training videos."
+        },
+        "salesAccess": {
+          "type": "boolean",
+          "description": "Whether the user can access Sales training videos."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "UID of the admin who last updated this access record.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "email",
+        "operationsAccess",
+        "salesAccess",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Signed-in team member profile synced from Google OAuth.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified lowercase email address.",
+          "minLength": 5,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name from Google OAuth.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Avatar URL from Google OAuth.",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "acceptedLegalAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the user first accepted the Terms of Service and Privacy Policy."
+        },
+        "acceptedLegalVersion": {
+          "type": "string",
+          "description": "Version identifier of the accepted Terms of Service and Privacy Policy.",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "First sign-in timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Most recent sign-in timestamp."
+        }
+      },
+      "required": ["uid", "email", "displayName", "photoURL", "createdAt", "updatedAt"]
+    },
+    "TrainingVideo": {
+      "title": "TrainingVideo",
+      "description": "Google Drive training video module assigned to Sales, Operations, or Both segments, with an embedded questionnaire.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Training module title.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional summary of learning objectives.",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "driveUrl": {
+          "type": "string",
+          "description": "Original Google Drive link pasted by the admin.",
+          "minLength": 10,
+          "maxLength": 500
+        },
+        "driveFileId": {
+          "type": "string",
+          "description": "Extracted Google Drive file ID used for preview embedding.",
+          "minLength": 5,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "segment": {
+          "type": "string",
+          "enum": ["sales", "operations", "both"],
+          "description": "Target team segment access."
+        },
+        "orderIndex": {
+          "type": "number",
+          "description": "Sequential module position used for gating next videos."
+        },
+        "passingScore": {
+          "type": "number",
+          "description": "Minimum percentage score (1-100) required to pass and unlock the next video."
+        },
+        "questions": {
+          "type": "array",
+          "description": "List of questionnaire items parsed from Excel (question, 4 options, correctIndex)."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the admin who uploaded the video.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "driveUrl",
+        "driveFileId",
+        "segment",
+        "orderIndex",
+        "passingScore",
+        "questions",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserVideoProgress": {
+      "title": "UserVideoProgress",
+      "description": "Per-user training progress, watch time, and quiz pass status for a specific video.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Learner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Learner lowercase email address.",
+          "minLength": 5,
+          "maxLength": 254
+        },
+        "userName": {
+          "type": "string",
+          "description": "Learner display name.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "videoId": {
+          "type": "string",
+          "description": "Referenced TrainingVideo document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "segment": {
+          "type": "string",
+          "enum": ["sales", "operations", "both"],
+          "description": "Video segment at time of engagement."
+        },
+        "viewCount": {
+          "type": "number",
+          "description": "Number of times the learner opened the video."
+        },
+        "watchSeconds": {
+          "type": "number",
+          "description": "Cumulative active watch seconds logged."
+        },
+        "attempts": {
+          "type": "number",
+          "description": "Number of questionnaire submissions."
+        },
+        "bestScore": {
+          "type": "number",
+          "description": "Highest quiz percentage achieved (0-100)."
+        },
+        "lastScore": {
+          "type": "number",
+          "description": "Most recent quiz percentage achieved (0-100)."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether the learner has passed the questionnaire to unlock the next video."
+        },
+        "lastAccessedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest activity."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "userEmail",
+        "userName",
+        "videoId",
+        "segment",
+        "viewCount",
+        "watchSeconds",
+        "attempts",
+        "bestScore",
+        "lastScore",
+        "passed",
+        "lastAccessedAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EngagementEvent": {
+      "title": "EngagementEvent",
+      "description": "Immutable telemetry event for video views, watch heartbeats, and quiz outcomes.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Learner UID.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Learner email.",
+          "minLength": 5,
+          "maxLength": 254
+        },
+        "videoId": {
+          "type": "string",
+          "description": "TrainingVideo ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "videoTitle": {
+          "type": "string",
+          "description": "TrainingVideo title snapshot.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "segment": {
+          "type": "string",
+          "enum": ["sales", "operations", "both"],
+          "description": "Training segment."
+        },
+        "eventType": {
+          "type": "string",
+          "enum": ["video_open", "watch_heartbeat", "quiz_submit", "quiz_pass"],
+          "description": "Type of engagement event."
+        },
+        "score": {
+          "type": "number",
+          "description": "Quiz percentage score (0-100)."
+        },
+        "watchSecondsDelta": {
+          "type": "number",
+          "description": "Watch duration delta in seconds (0-3600)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server event timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "userEmail",
+        "videoId",
+        "videoTitle",
+        "segment",
+        "eventType",
+        "score",
+        "watchSecondsDelta",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{emailId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin role directory keyed by lowercase email address."
+    },
+    "/teamAccess/{emailId}": {
+      "schema": { "$ref": "#/entities/TeamAccess" },
+      "description": "Operations and Sales email allowlist records keyed by lowercase email address."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Authenticated user profile documents keyed by Firebase Auth UID."
+    },
+    "/videos/{videoId}": {
+      "schema": { "$ref": "#/entities/TrainingVideo" },
+      "description": "Training video modules with Google Drive embed info, team segment, order, and questionnaire items."
+    },
+    "/progress/{progressId}": {
+      "schema": { "$ref": "#/entities/UserVideoProgress" },
+      "description": "Learner progress and quiz pass state per video, keyed by {uid}_{videoId}."
+    },
+    "/engagementEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/EngagementEvent" },
+      "description": "Append-only video engagement and quiz submission analytics log."
+    }
+  }
+}
