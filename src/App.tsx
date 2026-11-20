@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { BrandMark } from './components/BrandMark';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import {
   LegalPage,
@@ -54,9 +55,9 @@ type AppTab =
   | 'admin-access'
   | 'admin-analytics';
 
-const LS_READ_TERMS = 'cadence_read_terms_v1';
-const LS_READ_PRIVACY = 'cadence_read_privacy_v1';
-const LS_ACCEPTED_LEGAL = 'cadence_legal_accepted_version';
+const LS_READ_TERMS = 'racforge_read_terms_v1';
+const LS_READ_PRIVACY = 'racforge_read_privacy_v1';
+const LS_ACCEPTED_LEGAL = 'racforge_legal_accepted_version';
 
 function readStorageFlag(key: string): boolean {
   try {
@@ -334,7 +335,7 @@ function TrainingWorkspace() {
   if (!authReady) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-sm text-slate-500">Initializing Cadence workspace...</div>
+        <div className="text-sm text-slate-500">Initializing RAC Forge Training Portal...</div>
       </div>
     );
   }
@@ -369,9 +370,7 @@ function TrainingWorkspace() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900">
-            Cadence
-          </span>
+          <BrandMark />
           <button
             type="button"
             onClick={() => void handleSignOut()}
@@ -519,9 +518,7 @@ function TrainingWorkspace() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900">
-            Cadence
-          </span>
+          <BrandMark />
           <button
             type="button"
             onClick={() => void handleSignOut()}
@@ -583,10 +580,8 @@ function TrainingWorkspace() {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-white border-r border-slate-200 shrink-0">
-        <div className="h-16 px-6 flex items-center border-b border-slate-200">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900">
-            Cadence
-          </span>
+        <div className="h-16 px-5 flex items-center border-b border-slate-200">
+          <BrandMark size="sm" />
         </div>
 
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
@@ -664,7 +659,7 @@ function TrainingWorkspace() {
           />
           <div className="relative w-72 max-w-full bg-white h-full flex flex-col border-r border-slate-200 z-10">
             <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200">
-              <span className="font-display text-lg font-bold text-slate-900">Cadence</span>
+              <BrandMark size="sm" />
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(false)}

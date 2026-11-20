@@ -8,6 +8,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
+import { BrandMark, RAC_FORGE_LOGO_PATH } from './BrandMark';
 import { PrivacyPolicyContent, TermsOfServiceContent } from './LegalPages';
 
 interface LoginViewProps {
@@ -88,9 +89,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
       {/* Top Bar Contract: 3 zones separated by gap-8 */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
-            Cadence
-          </span>
+          <BrandMark />
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <a
@@ -131,7 +130,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   ? 'Sign in with Google'
                   : 'Read and agree to Terms of Service & Privacy Policy first'
               }
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-4 py-2 text-sm font-medium text-white bg-[#0D2C45] rounded-lg hover:bg-[#133b5c] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               {signingIn ? 'Signing in...' : 'Sign in with Google'}
             </button>
@@ -143,22 +142,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
       <main className="flex-1">
         <section
           id="overview"
-          className="max-w-7xl mx-auto px-6 py-16 lg:py-20 grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch"
+          className="max-w-7xl mx-auto px-6 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch"
         >
           <div className="lg:col-span-7 flex flex-col justify-center">
-            <p className="text-xs font-medium text-blue-700 tracking-wide mb-3">
-              Authorized Learning &amp; Assessment Portal
+            <p className="text-xs font-semibold text-[#1F6E82] tracking-wide mb-3">
+              RAC Forge Pvt. Ltd. · Authorized Training Portal
             </p>
             <h1
-              className="font-display text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 leading-[1.12] mb-5"
+              className="font-display text-4xl lg:text-5xl font-bold tracking-tight text-[#0D2C45] leading-[1.12] mb-5"
               style={{ textWrap: 'balance' }}
             >
-              Sign in to access your organization&apos;s training portal.
+              Sign in to the RAC Forge Pvt. Ltd. training portal.
             </h1>
             <p className="text-base text-slate-600 leading-relaxed max-w-xl mb-6">
-              Cadence provides verified team members with a secure, centralized portal to complete
-              assigned onboarding courses, pass knowledge checks, and maintain training records.
-              Access is granted exclusively to authorized email accounts.
+              This portal provides authorized personnel of{' '}
+              <a
+                href="https://www.racforge.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#0D2C45] underline hover:text-[#1F6E82]"
+              >
+                RAC Forge Pvt. Ltd.
+              </a>{' '}
+              with secure access to assigned onboarding modules, compliance assessments, and
+              training records. Access is restricted exclusively to approved accounts.
             </p>
 
             {/* Bold Pre-Login Terms & Privacy Gate */}
@@ -171,7 +178,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       You have already agreed to the Terms of Service and Privacy Policy.
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-xs font-medium text-blue-700">
+                  <div className="flex items-center gap-4 text-xs font-medium text-[#1F6E82]">
                     <button
                       type="button"
                       onClick={() => handleOpenDoc('terms')}
@@ -202,11 +209,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                         readTerms
                           ? 'bg-emerald-50/70 border-emerald-300 text-slate-900'
-                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-blue-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-[#1F6E82]'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2 text-xs font-semibold">
-                        <FileText className="w-4 h-4 text-slate-700 shrink-0" />
+                        <FileText className="w-4 h-4 text-[#0D2C45] shrink-0" />
                         <span>Read Terms of Service</span>
                       </span>
                       <span
@@ -224,11 +231,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                         readPrivacy
                           ? 'bg-emerald-50/70 border-emerald-300 text-slate-900'
-                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-blue-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-[#1F6E82]'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2 text-xs font-semibold">
-                        <ShieldCheck className="w-4 h-4 text-slate-700 shrink-0" />
+                        <ShieldCheck className="w-4 h-4 text-[#0D2C45] shrink-0" />
                         <span>Read Privacy Policy</span>
                       </span>
                       <span
@@ -250,14 +257,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       type="checkbox"
                       checked={agreed}
                       onChange={(e) => handleCheckboxChange(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 accent-blue-600 shrink-0"
+                      className="mt-0.5 w-4 h-4 accent-[#0D2C45] shrink-0"
                     />
                     <span className="font-semibold text-slate-900 leading-snug">
                       I have read and agree to the{' '}
                       <a
                         href="/terms"
                         onClick={(e) => handleFooterNav(e, '/terms')}
-                        className="text-blue-700 underline hover:text-blue-800"
+                        className="text-[#1F6E82] underline hover:text-[#0D2C45]"
                       >
                         Terms of Service
                       </a>{' '}
@@ -265,11 +272,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       <a
                         href="/privacy"
                         onClick={(e) => handleFooterNav(e, '/privacy')}
-                        className="text-blue-700 underline hover:text-blue-800"
+                        className="text-[#1F6E82] underline hover:text-[#0D2C45]"
                       >
                         Privacy Policy
-                      </a>
-                      .
+                      </a>{' '}
+                      of RAC Forge Pvt. Ltd.
                     </span>
                   </label>
                 </>
@@ -293,7 +300,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 type="button"
                 onClick={handleAttemptSignIn}
                 disabled={signingIn || !canProceedToLogin}
-                className="inline-flex items-center gap-2.5 px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-2.5 px-6 py-3 text-sm font-semibold text-white bg-[#1F6E82] rounded-lg hover:bg-[#175768] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <span>{signingIn ? 'Connecting Google Account...' : 'Sign in with Google'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -306,44 +313,59 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Public OAuth Scope & Portal Access Summary */}
+          {/* Right Column: Official Brand Identity & OAuth Scope Disclosure */}
           <div
             id="security"
             className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-6 lg:p-8 flex flex-col justify-between"
           >
             <div>
-              <div className="pb-4 mb-6 border-b border-slate-100">
-                <h2 className="text-base font-semibold text-slate-900">
-                  Authentication &amp; Data Usage
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Transparent Google OAuth 2.0 scope disclosure
-                </p>
+              <div className="pb-5 mb-6 border-b border-slate-100 flex items-center gap-4">
+                <img
+                  src={RAC_FORGE_LOGO_PATH}
+                  alt="RAC Forge Pvt. Ltd."
+                  referrerPolicy="no-referrer"
+                  className="h-16 w-16 rounded-lg object-contain bg-white border border-slate-200 p-1 shrink-0"
+                />
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-[#0D2C45]">RAC Forge Pvt. Ltd.</h2>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Shaping Compliance, Empowering Healthcare Innovation
+                  </p>
+                  <a
+                    href="https://www.racforge.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block text-xs font-medium text-[#1F6E82] hover:underline mt-1"
+                  >
+                    https://www.racforge.com
+                  </a>
+                </div>
               </div>
 
               <div className="space-y-5">
                 <div className="flex items-start gap-3.5">
-                  <UserCheck className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <UserCheck className="w-4 h-4 text-[#1F6E82] mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">
                       Basic Identity Verification
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                      Cadence requests only your verified Google email address, display name, and
-                      profile photo to confirm your identity and check your portal authorization.
+                      RAC Forge Training Portal requests only your verified Google email address,
+                      display name, and profile photo to confirm your identity and check portal
+                      authorization.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3.5">
-                  <Lock className="w-4 h-4 text-slate-700 mt-0.5 shrink-0" />
+                  <Lock className="w-4 h-4 text-[#0D2C45] mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">
                       Zero Access to Personal Google Data
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">
                       We never request access to your personal Gmail, Google Drive files, Calendar,
-                      or Contacts. Training content is provisioned separately within the portal.
+                      or Contacts. All training records remain private within RAC Forge Pvt. Ltd.
                     </p>
                   </div>
                 </div>
@@ -352,11 +374,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   <ShieldCheck className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">
-                      Protected Session &amp; Progress Records
+                      Protected Session &amp; Compliance Records
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                      All session authentication is handled through Firebase Authentication with
-                      encrypted HTTPS transit and strict access controls.
+                      Authentication is handled through Firebase Authentication with encrypted
+                      HTTPS transit and strict role-based access controls.
                     </p>
                   </div>
                 </div>
@@ -367,7 +389,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <span>Questions or data requests</span>
               <a
                 href="mailto:racforge@gmail.com"
-                className="font-medium text-slate-800 hover:text-blue-700"
+                className="font-medium text-[#0D2C45] hover:text-[#1F6E82]"
               >
                 racforge@gmail.com
               </a>
@@ -380,7 +402,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
       <footer className="bg-white border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-3">
-            <span>© 2026 Cadence Training Portal</span>
+            <span>© 2026 RAC Forge Pvt. Ltd.</span>
+            <span aria-hidden="true">·</span>
+            <a
+              href="https://www.racforge.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-slate-900 transition-colors"
+            >
+              www.racforge.com
+            </a>
             <span aria-hidden="true">·</span>
             <span>
               Support:{' '}
@@ -414,8 +445,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
-              <span className="text-sm font-bold text-slate-900">
-                {modalDoc === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+              <span className="text-sm font-bold text-[#0D2C45]">
+                {modalDoc === 'terms'
+                  ? 'RAC Forge Pvt. Ltd. — Terms of Service'
+                  : 'RAC Forge Pvt. Ltd. — Privacy Policy'}
               </span>
               <button
                 type="button"
@@ -437,14 +470,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   setModalDoc(null);
                   handleFooterNav(e, target);
                 }}
-                className="text-xs font-medium text-blue-700 hover:underline"
+                className="text-xs font-medium text-[#1F6E82] hover:underline"
               >
                 Open full page
               </a>
               <button
                 type="button"
                 onClick={() => setModalDoc(null)}
-                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#0D2C45] rounded-lg hover:bg-[#133b5c] cursor-pointer"
               >
                 I Have Read This Document
               </button>

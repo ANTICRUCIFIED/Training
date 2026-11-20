@@ -51,7 +51,7 @@ export function isValidEmail(email: string): boolean {
   );
 }
 
-export const LEGAL_POLICY_VERSION = '2026-11-18';
+export const LEGAL_POLICY_VERSION = '2026-11-19-racforge';
 
 export async function syncSignedInUserProfile(
   user: User,

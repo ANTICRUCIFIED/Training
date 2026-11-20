@@ -206,7 +206,7 @@ export function downloadQuestionnaireTemplate(): void {
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, sheet, 'Questionnaire');
-  XLSX.writeFile(wb, 'cadence_questionnaire_template.xlsx');
+  XLSX.writeFile(wb, 'racforge_questionnaire_template.xlsx');
 }
 
 export function exportAnalyticsWorkbook(
@@ -218,5 +218,5 @@ export function exportAnalyticsWorkbook(
   const learnerSheet = XLSX.utils.json_to_sheet(learnerRows);
   XLSX.utils.book_append_sheet(wb, videoSheet, 'Video Engagement');
   XLSX.utils.book_append_sheet(wb, learnerSheet, 'Learner Progress');
-  XLSX.writeFile(wb, 'cadence_training_analytics.xlsx');
+  XLSX.writeFile(wb, 'racforge_training_analytics.xlsx');
 }
