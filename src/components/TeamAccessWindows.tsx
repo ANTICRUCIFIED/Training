@@ -1,17 +1,34 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Shield, Trash2, UserCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  Plus,
+  Search,
+  Shield,
+  Trash2,
+  UserCheck,
+  XCircle,
+} from 'lucide-react';
 import { BOOTSTRAP_ADMIN_EMAILS } from '../firebase';
 import {
   addAdminEmail,
+  approveSalesAccessRequest,
   grantTeamAccessEmails,
+  rejectSalesAccessRequest,
   removeAdminEmail,
   revokeTeamAccessEmail,
 } from '../services/firestoreService';
-import type { AdminUserRecord, TeamAccessRecord, TrackSegment } from '../types';
+import type {
+  AccessRequestRecord,
+  AdminUserRecord,
+  TeamAccessRecord,
+  TrackSegment,
+} from '../types';
 
 interface TeamAccessWindowsProps {
   teamAccessList: TeamAccessRecord[];
   adminsList: AdminUserRecord[];
+  accessRequests: AccessRequestRecord[];
   adminUid: string;
 }
 
@@ -21,6 +38,17 @@ interface AccessWindowPanelProps {
   subtitle: string;
   members: TeamAccessRecord[];
   adminUid: string;
+}
+
+function formatDateTime(ts: AccessRequestRecord['createdAt']): string {
+  if (!ts) return 'Just now';
+  return ts.toDate().toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
@@ -40,8 +68,15 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
   const filteredMembers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return members;
-    return members.filter((m) => m.email.toLowerCase().includes(q));
+    return members.filter(
+      (m) =>
+        m.email.toLowerCase().includes(q) ||
+        (m.displayName && m.displayName.toLowerCase().includes(q)),
+    );
   }, [members, searchQuery]);
+
+  const teamLabel =
+    team === 'operations' ? 'Operations' : team === 'sales' ? 'Sales' : 'Custom Audience';
 
   const handleGrant = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +108,7 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
       } else {
         setFeedback({
           type: 'success',
-          text: `Granted ${team === 'operations' ? 'Operations' : 'Sales'} access to ${added.length} member(s).`,
+          text: `Granted ${teamLabel} access to ${added.length} member(s).`,
         });
       }
     } catch (err) {
@@ -117,26 +152,18 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
           rows={2}
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
-          placeholder={`e.g. alex@company.com, jordan@company.com`}
-          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors"
+          placeholder="e.g. alex@company.com, jordan@company.com"
+          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white transition-colors"
         />
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">
-            Matched on Google OAuth sign-in
-          </span>
+          <span className="text-xs text-slate-500">Matched on Google Sign-In</span>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#0D2C45] rounded-lg hover:bg-[#133b5c] disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>
-              {submitting
-                ? 'Saving...'
-                : team === 'operations'
-                  ? 'Grant Operations Access'
-                  : 'Grant Sales Access'}
-            </span>
+            <span>{submitting ? 'Saving...' : `Grant ${teamLabel}`}</span>
           </button>
         </div>
       </form>
@@ -161,7 +188,7 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Filter authorized emails..."
-          className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+          className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
         />
       </div>
 
@@ -175,8 +202,11 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
           </div>
         ) : (
           filteredMembers.map((member) => {
-            const alsoInOther =
-              team === 'operations' ? member.salesAccess : member.operationsAccess;
+            const otherWindows: string[] = [];
+            if (team !== 'operations' && member.operationsAccess) otherWindows.push('Operations');
+            if (team !== 'sales' && member.salesAccess) otherWindows.push('Sales');
+            if (team !== 'custom' && member.customAccess) otherWindows.push('Custom');
+
             return (
               <div
                 key={member.email}
@@ -185,10 +215,11 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
                 <div className="min-w-0">
                   <p className="text-sm text-slate-900 font-medium truncate">{member.email}</p>
                   <p className="text-xs text-slate-500">
-                    {team === 'operations' ? 'Operations' : 'Sales'}
-                    {alsoInOther
-                      ? ` · Also authorized in ${team === 'operations' ? 'Sales' : 'Operations'}`
+                    {member.displayName && member.displayName !== member.email
+                      ? `${member.displayName} · `
                       : ''}
+                    {teamLabel}
+                    {otherWindows.length > 0 ? ` · Also in ${otherWindows.join(', ')}` : ''}
                   </p>
                 </div>
                 <button
@@ -211,11 +242,30 @@ const AccessWindowPanel: React.FC<AccessWindowPanelProps> = ({
 export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
   teamAccessList,
   adminsList,
+  accessRequests,
   adminUid,
 }) => {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
   const [addingAdmin, setAddingAdmin] = useState(false);
+
+  // Approval queue state
+  const [requestFilter, setRequestFilter] = useState<'pending' | 'all'>('pending');
+  const [processingEmail, setProcessingEmail] = useState<string | null>(null);
+  const [approvalFeedback, setApprovalFeedback] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const pendingRequests = useMemo(
+    () => accessRequests.filter((r) => r.status === 'pending'),
+    [accessRequests],
+  );
+
+  const visibleRequests = useMemo(
+    () => (requestFilter === 'pending' ? pendingRequests : accessRequests),
+    [requestFilter, pendingRequests, accessRequests],
+  );
 
   const operationsMembers = useMemo(
     () => teamAccessList.filter((r) => r.operationsAccess),
@@ -225,6 +275,48 @@ export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
     () => teamAccessList.filter((r) => r.salesAccess),
     [teamAccessList],
   );
+  const customMembers = useMemo(
+    () => teamAccessList.filter((r) => r.customAccess),
+    [teamAccessList],
+  );
+
+  const handleApproveRequest = async (reqRecord: AccessRequestRecord) => {
+    setProcessingEmail(reqRecord.email);
+    setApprovalFeedback(null);
+    try {
+      await approveSalesAccessRequest(reqRecord, adminUid, 'Approved for Sales Team (BDM)');
+      setApprovalFeedback({
+        type: 'success',
+        text: `Approved ${reqRecord.email} and granted Sales Team Window access.`,
+      });
+    } catch (err) {
+      setApprovalFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Unable to approve access request.',
+      });
+    } finally {
+      setProcessingEmail(null);
+    }
+  };
+
+  const handleRejectRequest = async (email: string) => {
+    setProcessingEmail(email);
+    setApprovalFeedback(null);
+    try {
+      await rejectSalesAccessRequest(email, adminUid, 'Declined by administrator');
+      setApprovalFeedback({
+        type: 'success',
+        text: `Declined Sales access request for ${email}.`,
+      });
+    } catch (err) {
+      setApprovalFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Unable to decline access request.',
+      });
+    } finally {
+      setProcessingEmail(null);
+    }
+  };
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,19 +335,169 @@ export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Team Access Windows</h1>
+        <h1 className="text-xl font-bold text-slate-900">
+          Team Access Windows &amp; Sales BDM Approvals
+        </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Enter authorized email IDs into the Operations and Sales windows. Users who appear in
-          both windows gain access to both training tracks.
+          Approve incoming Sales Team (BDM) signup requests or manage allowlisted emails directly
+          across Operations (admin-added only), Sales, and Custom Audience windows.
         </p>
       </div>
 
-      {/* Two Dedicated Side-by-Side Access Windows */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Pending Sales BDM Signup Approval Queue */}
+      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span>Sales Team (BDM) Signup Approval Queue</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Unlisted Google sign-ins automatically request Sales Team access here. Approving adds
+              them directly to the Sales Team Window. Operations Team remains admin-added only.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setRequestFilter('pending')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                requestFilter === 'pending'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Pending{' '}
+              <span className="font-mono tabular-nums ml-1 text-amber-700 font-semibold">
+                {pendingRequests.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestFilter('all')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                requestFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All Requests{' '}
+              <span className="font-mono tabular-nums ml-1 text-slate-500">
+                {accessRequests.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {approvalFeedback && (
+          <div
+            className={`mx-6 mt-4 p-3 rounded-lg text-xs border ${
+              approvalFeedback.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}
+          >
+            {approvalFeedback.text}
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">
+                <th className="py-3 px-5">Applicant</th>
+                <th className="py-3 px-4">Requested Window</th>
+                <th className="py-3 px-4">Applicant Details / Note</th>
+                <th className="py-3 px-4">Requested On</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {visibleRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-xs text-slate-500">
+                    {requestFilter === 'pending'
+                      ? 'No pending Sales BDM signup requests at the moment.'
+                      : 'No access requests recorded yet.'}
+                  </td>
+                </tr>
+              ) : (
+                visibleRequests.map((req) => {
+                  const busy = processingEmail === req.email;
+                  return (
+                    <tr key={req.email} className="hover:bg-slate-50">
+                      <td className="py-3.5 px-5">
+                        <p className="font-semibold text-slate-900">
+                          {req.displayName || req.email}
+                        </p>
+                        <p className="text-xs text-slate-500">{req.email}</p>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-medium text-[#1F6E82] whitespace-nowrap">
+                        Sales Team (BDM)
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-slate-600 max-w-xs">
+                        {req.note ? req.note : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-xs text-slate-500 tabular-nums whitespace-nowrap">
+                        {formatDateTime(req.createdAt)}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs whitespace-nowrap">
+                        {req.status === 'pending' ? (
+                          <span className="font-semibold text-amber-700">Pending Approval</span>
+                        ) : req.status === 'approved' ? (
+                          <span className="font-semibold text-emerald-700">Approved</span>
+                        ) : (
+                          <span className="font-semibold text-rose-700">Declined</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2">
+                          {req.status !== 'approved' && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void handleApproveRequest(req)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{busy ? 'Saving...' : 'Approve Sales Access'}</span>
+                            </button>
+                          )}
+                          {req.status === 'pending' && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void handleRejectRequest(req.email)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Decline</span>
+                            </button>
+                          )}
+                          {req.status === 'approved' && (
+                            <span className="text-xs text-slate-400 font-mono tabular-nums">
+                              {formatDateTime(req.reviewedAt)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Three Dedicated Access Windows */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <AccessWindowPanel
           team="operations"
           title="Operations Team Window"
-          subtitle="Emails granted access to Operations and shared training modules"
+          subtitle="Admin-added only · Operations and shared Ops & Sales modules"
           members={operationsMembers}
           adminUid={adminUid}
         />
@@ -263,8 +505,16 @@ export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
         <AccessWindowPanel
           team="sales"
           title="Sales Team Window"
-          subtitle="Emails granted access to Sales and shared training modules"
+          subtitle="Approved BDMs & admin-added Sales members"
           members={salesMembers}
+          adminUid={adminUid}
+        />
+
+        <AccessWindowPanel
+          team="custom"
+          title="Custom Audience Window"
+          subtitle="Outside Sales/Ops — custom cohorts & invited learners"
+          members={customMembers}
           adminUid={adminUid}
         />
       </div>
@@ -278,12 +528,15 @@ export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
               <span>Platform Administrators</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Administrators can upload training videos, import questionnaires, manage team windows,
-              and view all analytics.
+              Administrators can upload training videos, import questionnaires, approve Sales BDM
+              signups, manage team windows, and view all individual reports and activity logs.
             </p>
           </div>
           <span className="font-mono text-xs text-slate-500 tabular-nums">
-            {adminsList.filter((a) => !(BOOTSTRAP_ADMIN_EMAILS as readonly string[]).includes(a.email)).length + BOOTSTRAP_ADMIN_EMAILS.length} admins
+            {adminsList.filter(
+              (a) => !(BOOTSTRAP_ADMIN_EMAILS as readonly string[]).includes(a.email),
+            ).length + BOOTSTRAP_ADMIN_EMAILS.length}{' '}
+            admins
           </span>
         </div>
 
@@ -294,12 +547,12 @@ export const TeamAccessWindows: React.FC<TeamAccessWindowsProps> = ({
             value={newAdminEmail}
             onChange={(e) => setNewAdminEmail(e.target.value)}
             placeholder="Add co-admin email address..."
-            className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+            className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
           />
           <button
             type="submit"
             disabled={addingAdmin}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0D2C45] rounded-lg hover:bg-[#133b5c] disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5" />
             <span>{addingAdmin ? 'Adding...' : 'Add Administrator'}</span>

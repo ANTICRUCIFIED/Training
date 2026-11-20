@@ -3,6 +3,8 @@ import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebas
 import {
   BarChart3,
   Briefcase,
+  CheckCircle2,
+  Clock,
   FileText,
   Film,
   LogOut,
@@ -10,6 +12,7 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  UserPlus,
   Users,
   Wrench,
   X,
@@ -29,20 +32,29 @@ import { VideoUploadManager } from './components/VideoUploadManager';
 import { auth, googleProvider } from './firebase';
 import {
   LEGAL_POLICY_VERSION,
+  ensureSalesAccessRequest,
   recordLegalAcceptance,
+  recordLoginLog,
   resolveUserAccess,
+  subscribeAccessRequests,
   subscribeAdminsList,
   subscribeAllProgress,
   subscribeEngagementEvents,
+  subscribeLoginLogs,
+  subscribeMyAccessRequest,
+  subscribeMyTeamAccess,
   subscribeTeamAccessList,
   subscribeTrainingVideos,
   subscribeUserProgress,
   syncSignedInUserProfile,
+  updateMySalesAccessRequest,
 } from './services/firestoreService';
 import type {
+  AccessRequestRecord,
   AdminUserRecord,
   AuthAccessState,
   EngagementEvent,
+  LoginLogRecord,
   TeamAccessRecord,
   TrainingVideo,
   UserVideoProgress,
@@ -51,6 +63,7 @@ import type {
 type AppTab =
   | 'operations'
   | 'sales'
+  | 'custom'
   | 'admin-videos'
   | 'admin-access'
   | 'admin-analytics';
@@ -135,8 +148,17 @@ function TrainingWorkspace() {
   const [userProgress, setUserProgress] = useState<Record<string, UserVideoProgress>>({});
   const [teamAccessList, setTeamAccessList] = useState<TeamAccessRecord[]>([]);
   const [adminsList, setAdminsList] = useState<AdminUserRecord[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>([]);
   const [allProgress, setAllProgress] = useState<UserVideoProgress[]>([]);
   const [engagementEvents, setEngagementEvents] = useState<EngagementEvent[]>([]);
+  const [loginLogs, setLoginLogs] = useState<LoginLogRecord[]>([]);
+
+  // Unlisted Sales BDM applicant request state
+  const [myAccessRequest, setMyAccessRequest] = useState<AccessRequestRecord | null>(null);
+  const [applicantName, setApplicantName] = useState('');
+  const [applicantNote, setApplicantNote] = useState('');
+  const [savingApplicantInfo, setSavingApplicantInfo] = useState(false);
+  const [applicantFeedback, setApplicantFeedback] = useState<string | null>(null);
 
   const loadAccess = useCallback(
     async (currentUser: User, recordAcceptanceNow: boolean) => {
@@ -159,6 +181,39 @@ function TrainingWorkspace() {
         }
         const resolved = await resolveUserAccess(currentUser);
         setAccess(resolved);
+
+        const userHasAccess =
+          resolved.isAdmin ||
+          resolved.operationsAccess ||
+          resolved.salesAccess ||
+          resolved.customAccess;
+
+        let reqRecord: AccessRequestRecord | null = null;
+        if (!userHasAccess) {
+          reqRecord = await ensureSalesAccessRequest(currentUser);
+          setMyAccessRequest(reqRecord);
+          setApplicantName(reqRecord?.displayName || currentUser.displayName || '');
+          setApplicantNote(reqRecord?.note || '');
+        }
+
+        // Log sign-in once per browser session state (pending vs granted) for this user
+        const sessionKey = `racforge_login_logged_${currentUser.uid}_${
+          userHasAccess ? 'granted' : 'pending'
+        }`;
+        let alreadyLogged = false;
+        try {
+          alreadyLogged = window.sessionStorage.getItem(sessionKey) === 'true';
+        } catch {
+          alreadyLogged = false;
+        }
+        if (!alreadyLogged) {
+          try {
+            window.sessionStorage.setItem(sessionKey, 'true');
+          } catch {
+            // ignore
+          }
+          void recordLoginLog(currentUser, resolved, reqRecord?.status ?? null);
+        }
       } finally {
         setAccessLoading(false);
       }
@@ -176,35 +231,79 @@ function TrainingWorkspace() {
       } else {
         setAccess(null);
         setHasAcceptedLegalInDb(false);
+        setMyAccessRequest(null);
         setVideos([]);
         setUserProgress({});
         setTeamAccessList([]);
         setAdminsList([]);
+        setAccessRequests([]);
         setAllProgress([]);
         setEngagementEvents([]);
+        setLoginLogs([]);
       }
     });
     return () => unsub();
   }, [loadAccess, readTerms, readPrivacy, agreedOnHome]);
 
+  // Real-time listeners for waiting Sales BDM applicants so admin approval unlocks them instantly
+  useEffect(() => {
+    if (!user || !user.email || !access || !hasAcceptedLegalInDb) return;
+    const hasAccess =
+      access.isAdmin || access.operationsAccess || access.salesAccess || access.customAccess;
+    if (hasAccess) return;
+
+    const unsubReq = subscribeMyAccessRequest(user.email, (req) => {
+      setMyAccessRequest(req);
+      if (req) {
+        setApplicantName((prev) => prev || req.displayName || user.displayName || '');
+        setApplicantNote((prev) => prev || req.note || '');
+      }
+    });
+
+    const unsubMyAccess = subscribeMyTeamAccess(user.email, (teamRec) => {
+      if (
+        teamRec &&
+        (teamRec.salesAccess || teamRec.operationsAccess || teamRec.customAccess)
+      ) {
+        void loadAccess(user, true);
+      }
+    });
+
+    return () => {
+      unsubReq();
+      unsubMyAccess();
+    };
+  }, [user, access, hasAcceptedLegalInDb, loadAccess]);
+
   // Attach Firestore listeners only when auth, legal acceptance, and access are resolved
   useEffect(() => {
     if (!user || !access || !hasAcceptedLegalInDb) return;
-    if (!access.isAdmin && !access.operationsAccess && !access.salesAccess) return;
+    if (
+      !access.isAdmin &&
+      !access.operationsAccess &&
+      !access.salesAccess &&
+      !access.customAccess
+    ) {
+      return;
+    }
 
-    const unsubVideos = subscribeTrainingVideos(access, setVideos);
+    const unsubVideos = subscribeTrainingVideos(access, user.email ?? '', setVideos);
     const unsubProgress = subscribeUserProgress(user.uid, setUserProgress);
 
     let unsubTeam = () => {};
     let unsubAdmins = () => {};
+    let unsubRequests = () => {};
     let unsubAllProgress = () => {};
     let unsubEvents = () => {};
+    let unsubLogins = () => {};
 
     if (access.isAdmin) {
       unsubTeam = subscribeTeamAccessList(setTeamAccessList);
       unsubAdmins = subscribeAdminsList(setAdminsList);
+      unsubRequests = subscribeAccessRequests(setAccessRequests);
       unsubAllProgress = subscribeAllProgress(setAllProgress);
       unsubEvents = subscribeEngagementEvents(setEngagementEvents);
+      unsubLogins = subscribeLoginLogs(setLoginLogs);
     }
 
     return () => {
@@ -212,8 +311,10 @@ function TrainingWorkspace() {
       unsubProgress();
       unsubTeam();
       unsubAdmins();
+      unsubRequests();
       unsubAllProgress();
       unsubEvents();
+      unsubLogins();
     };
   }, [user, access, hasAcceptedLegalInDb]);
 
@@ -241,6 +342,14 @@ function TrainingWorkspace() {
         label: 'Sales Window',
         section: 'Training Windows',
         icon: Briefcase,
+      });
+    }
+    if (access.isAdmin || access.customAccess) {
+      items.push({
+        id: 'custom',
+        label: 'Custom Audience',
+        section: 'Training Windows',
+        icon: UserPlus,
       });
     }
 
@@ -321,7 +430,41 @@ function TrainingWorkspace() {
   };
 
   const handleSignOut = async () => {
+    if (user) {
+      try {
+        window.sessionStorage.removeItem(`racforge_login_logged_${user.uid}_pending`);
+        window.sessionStorage.removeItem(`racforge_login_logged_${user.uid}_granted`);
+      } catch {
+        // ignore
+      }
+    }
     await signOut(auth);
+  };
+
+  const handleSaveApplicantDetails = async (e: React.FormEvent, resubmit = false) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingApplicantInfo(true);
+    setApplicantFeedback(null);
+    try {
+      if (!myAccessRequest) {
+        const created = await ensureSalesAccessRequest(user, applicantNote);
+        setMyAccessRequest(created);
+      } else {
+        await updateMySalesAccessRequest(user, applicantName, applicantNote, resubmit);
+      }
+      setApplicantFeedback(
+        resubmit
+          ? 'Your Sales Team (BDM) access request has been resubmitted for administrator review.'
+          : 'Your details have been saved for the administrator.',
+      );
+    } catch (err) {
+      setApplicantFeedback(
+        err instanceof Error ? err.message : 'Unable to update your access request.',
+      );
+    } finally {
+      setSavingApplicantInfo(false);
+    }
   };
 
   const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
@@ -514,9 +657,11 @@ function TrainingWorkspace() {
     );
   }
 
-  const hasAnyAccess = access.isAdmin || access.operationsAccess || access.salesAccess;
+  const hasAnyAccess =
+    access.isAdmin || access.operationsAccess || access.salesAccess || access.customAccess;
 
   if (!hasAnyAccess) {
+    const isRejected = myAccessRequest?.status === 'rejected';
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between">
@@ -532,34 +677,108 @@ function TrainingWorkspace() {
         </header>
 
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-8 text-center">
-            <ShieldAlert className="w-8 h-8 text-amber-600 mx-auto mb-3" />
-            <h1 className="text-lg font-bold text-slate-900">Team Access Pending</h1>
-            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-              You are signed in as <span className="font-medium text-slate-900">{user.email}</span>
-              , which has not yet been added to the Operations or Sales access windows.
-            </p>
-            <p className="text-xs text-slate-500 mt-3">
-              Ask your administrator to add your email ID to the Operations or Sales window in the
-              Admin Portal.
-            </p>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => void loadAccess(user, true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Check Access Again</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                Switch Account
-              </button>
+          <div className="max-w-lg w-full bg-white border border-slate-200 rounded-xl p-8 space-y-6">
+            <div className="text-center">
+              {isRejected ? (
+                <ShieldAlert className="w-9 h-9 text-rose-600 mx-auto mb-3" />
+              ) : (
+                <Clock className="w-9 h-9 text-amber-600 mx-auto mb-3" />
+              )}
+              <h1 className="text-lg font-bold text-slate-900">
+                {isRejected
+                  ? 'Sales Team (BDM) Access Request Declined'
+                  : 'Sales Team (BDM) Access Request Initiated'}
+              </h1>
+              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                Signed in as <span className="font-semibold text-slate-900">{user.email}</span>.{' '}
+                {isRejected
+                  ? 'Your previous request for Sales Team training access was declined by an administrator.'
+                  : 'Because your email is not yet on an active team list, a Sales Team (BDM) signup request has been automatically sent to the administrator for approval.'}
+              </p>
+              <p className="text-xs text-slate-500 mt-2">
+                Operations Team access is assigned directly by administrators only. Once your Sales
+                Team (BDM) login is approved, this screen will unlock automatically.
+              </p>
             </div>
+
+            {myAccessRequest?.reviewNote && isRejected && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800">
+                <span className="font-semibold">Administrator remark:</span>{' '}
+                {myAccessRequest.reviewNote}
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => void handleSaveApplicantDetails(e, isRejected)}
+              className="space-y-3 border-t border-slate-100 pt-5"
+            >
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Full Name (for Admin Verification)
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={applicantName}
+                  onChange={(e) => setApplicantName(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  BDM Details / Note (Optional — e.g. Phone, City/Territory, Reporting Manager)
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={300}
+                  value={applicantNote}
+                  onChange={(e) => setApplicantNote(e.target.value)}
+                  placeholder="e.g. Sales BDM — Delhi NCR, Phone: +91-..., Reporting to ..."
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
+                />
+              </div>
+
+              {applicantFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{applicantFeedback}</span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={savingApplicantInfo}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#0D2C45] rounded-lg hover:bg-[#143d5e] disabled:opacity-60 transition-colors cursor-pointer"
+                >
+                  {savingApplicantInfo
+                    ? 'Saving...'
+                    : isRejected
+                      ? 'Resubmit Sales Request'
+                      : 'Update Request Details'}
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadAccess(user, true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Check Approval</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                  >
+                    Switch Account
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </main>
       </div>
@@ -567,13 +786,15 @@ function TrainingWorkspace() {
   }
 
   const currentNav = navItems.find((i) => i.id === activeTab);
-  const roleSummary = access.isAdmin
-    ? 'Administrator'
-    : access.operationsAccess && access.salesAccess
-      ? 'Operations & Sales'
-      : access.operationsAccess
-        ? 'Operations Team'
-        : 'Sales Team';
+  const roleParts: string[] = [];
+  if (access.isAdmin) {
+    roleParts.push('Administrator');
+  } else {
+    if (access.operationsAccess) roleParts.push('Operations');
+    if (access.salesAccess) roleParts.push('Sales');
+    if (access.customAccess) roleParts.push('Custom Audience');
+  }
+  const roleSummary = roleParts.join(' · ') || 'Member';
 
   const trainingNav = navItems.filter((i) => i.section === 'Training Windows');
   const adminNav = navItems.filter((i) => i.section === 'Admin Portal');
@@ -621,19 +842,34 @@ function TrainingWorkspace() {
                 {adminNav.map((item) => {
                   const Icon = item.icon;
                   const active = activeTab === item.id;
+                  const pendingCount =
+                    item.id === 'admin-access'
+                      ? accessRequests.filter((r) => r.status === 'pending').length
+                      : 0;
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                         active
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="inline-flex items-center gap-2.5 min-w-0">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      {pendingCount > 0 && (
+                        <span
+                          className={`font-mono text-xs font-semibold tabular-nums shrink-0 ${
+                            active ? 'text-amber-300' : 'text-amber-700'
+                          }`}
+                        >
+                          {pendingCount}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -782,14 +1018,29 @@ function TrainingWorkspace() {
             />
           )}
 
+          {activeTab === 'custom' && (
+            <TrainingTrackView
+              track="custom"
+              videos={videos}
+              progressMap={userProgress}
+              user={user}
+              isAdmin={access.isAdmin}
+            />
+          )}
+
           {activeTab === 'admin-videos' && access.isAdmin && (
-            <VideoUploadManager videos={videos} adminUid={user.uid} />
+            <VideoUploadManager
+              videos={videos}
+              teamAccessList={teamAccessList}
+              adminUid={user.uid}
+            />
           )}
 
           {activeTab === 'admin-access' && access.isAdmin && (
             <TeamAccessWindows
               teamAccessList={teamAccessList}
               adminsList={adminsList}
+              accessRequests={accessRequests}
               adminUid={user.uid}
             />
           )}
@@ -799,6 +1050,7 @@ function TrainingWorkspace() {
               videos={videos}
               allProgress={allProgress}
               engagementEvents={engagementEvents}
+              loginLogs={loginLogs}
               teamAccessList={teamAccessList}
             />
           )}

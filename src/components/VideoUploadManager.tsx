@@ -9,13 +9,23 @@ import {
   Search,
   Trash2,
   Upload,
+  Users,
 } from 'lucide-react';
 import {
   createTrainingVideo,
   deleteTrainingVideo,
+  isValidEmail,
+  normalizeEmail,
   updateTrainingVideo,
 } from '../services/firestoreService';
-import { BLUEPRINT_LIMITS, type QuizQuestion, type Segment, type TrainingVideo } from '../types';
+import {
+  BLUEPRINT_LIMITS,
+  type OnboardingStage,
+  type QuizQuestion,
+  type Segment,
+  type TeamAccessRecord,
+  type TrainingVideo,
+} from '../types';
 import { extractDriveFileId, getDrivePreviewUrl } from '../utils/drive';
 import {
   applyIndexMode,
@@ -27,15 +37,41 @@ import {
 
 interface VideoUploadManagerProps {
   videos: TrainingVideo[];
+  teamAccessList: TeamAccessRecord[];
   adminUid: string;
 }
 
-export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, adminUid }) => {
+export function formatSegmentLabel(segment: Segment, customEmails?: string[]): string {
+  switch (segment) {
+    case 'operations':
+      return 'Operations';
+    case 'sales':
+      return 'Sales';
+    case 'both':
+      return 'Ops & Sales';
+    case 'custom':
+      return 'Custom Window';
+    case 'custom_list':
+      return `Custom (${customEmails?.length ?? 0} selected)`;
+  }
+}
+
+export function formatStageLabel(stage: OnboardingStage): string {
+  return stage === 'post_onboarding' ? 'After Onboarding' : 'Before Onboarding';
+}
+
+export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({
+  videos,
+  teamAccessList,
+  adminUid,
+}) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
   const [segment, setSegment] = useState<Segment>('operations');
+  const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('pre_onboarding');
+  const [customEmailsText, setCustomEmailsText] = useState('');
   const [orderIndex, setOrderIndex] = useState<number>(() => videos.length + 1);
   const [passingScore, setPassingScore] = useState<number>(70);
 
@@ -51,20 +87,48 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
     null,
   );
 
-  const [segmentFilter, setSegmentFilter] = useState<'all' | Segment>('all');
+  const [segmentFilter, setSegmentFilter] = useState<'all' | 'operations' | 'sales' | 'both' | 'custom'>('all');
+  const [stageFilter, setStageFilter] = useState<'all' | OnboardingStage>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const extractedDriveId = useMemo(() => extractDriveFileId(driveUrl), [driveUrl]);
 
+  const parsedCustomEmails = useMemo(() => {
+    const rawTokens = customEmailsText
+      .split(/[\n,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    const seen = new Set<string>();
+    for (const token of rawTokens) {
+      const email = normalizeEmail(token);
+      if (isValidEmail(email)) {
+        if (!seen.has(email)) {
+          seen.add(email);
+          valid.push(email);
+        }
+      } else {
+        invalid.push(token);
+      }
+    }
+    return { valid, invalid };
+  }, [customEmailsText]);
+
   const filteredVideos = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return videos.filter((v) => {
-      if (segmentFilter !== 'all' && v.segment !== segmentFilter) return false;
+      if (segmentFilter === 'custom') {
+        if (v.segment !== 'custom' && v.segment !== 'custom_list') return false;
+      } else if (segmentFilter !== 'all' && v.segment !== segmentFilter) {
+        return false;
+      }
+      if (stageFilter !== 'all' && v.onboardingStage !== stageFilter) return false;
       if (q && !v.title.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [videos, segmentFilter, searchQuery]);
+  }, [videos, segmentFilter, stageFilter, searchQuery]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -72,6 +136,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
     setDescription('');
     setDriveUrl('');
     setSegment('operations');
+    setOnboardingStage('pre_onboarding');
+    setCustomEmailsText('');
     setOrderIndex(videos.length + 1);
     setPassingScore(70);
     setQuestions([]);
@@ -89,6 +155,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
     setDescription(video.description);
     setDriveUrl(video.driveUrl);
     setSegment(video.segment);
+    setOnboardingStage(video.onboardingStage);
+    setCustomEmailsText(video.customEmails.join(', '));
     setOrderIndex(video.orderIndex);
     setPassingScore(video.passingScore);
     setQuestions(video.questions);
@@ -97,6 +165,12 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
     setExcelFileName(null);
     setFormMessage(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleQuickAddCustomEmail = (email: string) => {
+    const existing = new Set(parsedCustomEmails.valid);
+    if (existing.has(email)) return;
+    setCustomEmailsText((prev) => (prev.trim() ? `${prev.trim()}, ${email}` : email));
   };
 
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,6 +234,23 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
       return;
     }
 
+    if (segment === 'custom_list') {
+      if (parsedCustomEmails.valid.length === 0) {
+        setFormMessage({
+          type: 'error',
+          text: 'Enter at least one valid email address for Specific Custom Audience access.',
+        });
+        return;
+      }
+      if (parsedCustomEmails.invalid.length > 0) {
+        setFormMessage({
+          type: 'error',
+          text: `Invalid email address(es): ${parsedCustomEmails.invalid.join(', ')}`,
+        });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -168,6 +259,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
         driveUrl: driveUrl.trim(),
         driveFileId: extractedDriveId,
         segment,
+        onboardingStage,
+        customEmails: segment === 'custom_list' ? parsedCustomEmails.valid : [],
         orderIndex,
         passingScore,
         questions,
@@ -180,7 +273,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
         await createTrainingVideo(payload, adminUid);
         setFormMessage({
           type: 'success',
-          text: `Published "${title.trim()}" with ${questions.length} questionnaire item(s).`,
+          text: `Published "${title.trim()}" (${formatStageLabel(onboardingStage)}) with ${questions.length} questionnaire item(s).`,
         });
       }
       resetForm();
@@ -206,6 +299,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
     }
   };
 
+  const isCustomSegment = segment === 'custom' || segment === 'custom_list';
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -214,8 +309,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
             {editingId ? 'Edit Training Module' : 'Upload Training Video & Questionnaire'}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Paste a Google Drive video link, choose team access, and attach a 6-column Excel
-            questionnaire.
+            Paste a Google Drive link, assign Before/After Onboarding stage and audience access, and
+            attach an Excel questionnaire.
           </p>
         </div>
 
@@ -259,8 +354,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                 maxLength={BLUEPRINT_LIMITS.TITLE_MAX}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Enterprise Discovery Call Framework"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                placeholder="e.g., Compliance Induction & Quality Protocols"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
               />
             </div>
 
@@ -273,7 +368,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                   <button
                     type="button"
                     onClick={() => setShowPreviewEmbed((p) => !p)}
-                    className="text-xs font-medium text-blue-700 hover:underline cursor-pointer"
+                    className="text-xs font-medium text-[#1F6E82] hover:underline cursor-pointer"
                   >
                     {showPreviewEmbed ? 'Hide Embed Preview' : 'Preview Drive Video'}
                   </button>
@@ -286,7 +381,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                 value={driveUrl}
                 onChange={(e) => setDriveUrl(e.target.value)}
                 placeholder="https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/view"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white font-mono text-xs"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white font-mono text-xs"
               />
               <p className="text-xs text-slate-500 mt-1">
                 {driveUrl.trim()
@@ -318,29 +413,29 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Key takeaways or instructions for this training video..."
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-              <div>
+            {/* Stage + Order + Passing Score */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 pt-1">
+              <div className="sm:col-span-6">
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Team Access Segment *
+                  Onboarding Stage *
                 </label>
-                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
+                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg">
                   {(
                     [
-                      { id: 'operations', label: 'Ops' },
-                      { id: 'sales', label: 'Sales' },
-                      { id: 'both', label: 'Both' },
+                      { id: 'pre_onboarding', label: 'Before Onboarding' },
+                      { id: 'post_onboarding', label: 'After Onboarding' },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setSegment(opt.id)}
-                      className={`py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                        segment === opt.id
+                      onClick={() => setOnboardingStage(opt.id)}
+                      className={`py-1.5 px-2 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                        onboardingStage === opt.id
                           ? 'bg-white text-slate-900 shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
@@ -351,9 +446,9 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                 </div>
               </div>
 
-              <div>
+              <div className="sm:col-span-3">
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Sequence Order
+                  Level / Order
                 </label>
                 <input
                   type="number"
@@ -361,13 +456,13 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                   max={10000}
                   value={orderIndex}
                   onChange={(e) => setOrderIndex(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-3">
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Passing Score (%)
+                  Pass Score (%)
                 </label>
                 <input
                   type="number"
@@ -375,9 +470,142 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                   max={100}
                   value={passingScore}
                   onChange={(e) => setPassingScore(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
                 />
               </div>
+            </div>
+
+            {/* Audience Access */}
+            <div className="space-y-3 pt-1">
+              <label className="block text-xs font-medium text-slate-700">
+                Audience Access *
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-slate-100 rounded-lg">
+                {(
+                  [
+                    { id: 'operations', label: 'Operations' },
+                    { id: 'sales', label: 'Sales' },
+                    { id: 'both', label: 'Ops & Sales' },
+                    { id: 'custom', label: 'Custom Audience' },
+                  ] as const
+                ).map((opt) => {
+                  const active =
+                    opt.id === 'custom' ? isCustomSegment : segment === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        setSegment(
+                          opt.id === 'custom'
+                            ? segment === 'custom_list'
+                              ? 'custom_list'
+                              : 'custom'
+                            : opt.id,
+                        )
+                      }
+                      className={`py-1.5 px-2 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                        active
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {isCustomSegment && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-[#1F6E82]" />
+                      <span>Custom Audience Scope</span>
+                    </span>
+                    <div className="flex items-center gap-1 p-0.5 bg-slate-200/80 rounded-md">
+                      <button
+                        type="button"
+                        onClick={() => setSegment('custom')}
+                        className={`px-2.5 py-1 text-xs font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
+                          segment === 'custom'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        All Custom Window Members
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSegment('custom_list')}
+                        className={`px-2.5 py-1 text-xs font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
+                          segment === 'custom_list'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        Specific Email IDs Only
+                      </button>
+                    </div>
+                  </div>
+
+                  {segment === 'custom' ? (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Visible to every user authorized in the <strong>Custom Audience Window</strong>{' '}
+                      (outside Sales and Operations teams).
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <label className="block text-xs text-slate-600">
+                        Enter specific email IDs allowed to watch this video (up to{' '}
+                        {BLUEPRINT_LIMITS.MAX_CUSTOM_EMAILS}, comma or newline separated):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={customEmailsText}
+                        onChange={(e) => setCustomEmailsText(e.target.value)}
+                        placeholder="e.g. qa.lead@racforge.com, partner@client.com"
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82]"
+                      />
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>
+                          {parsedCustomEmails.valid.length} valid email(s) selected
+                          {parsedCustomEmails.invalid.length > 0
+                            ? ` · ${parsedCustomEmails.invalid.length} invalid`
+                            : ''}
+                        </span>
+                      </div>
+                      {teamAccessList.length > 0 && (
+                        <div className="pt-1">
+                          <p className="text-xs text-slate-500 mb-1.5">
+                            Quick-add from authorized users:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                            {teamAccessList.slice(0, 12).map((member) => {
+                              const selected = parsedCustomEmails.valid.includes(member.email);
+                              return (
+                                <button
+                                  key={member.email}
+                                  type="button"
+                                  onClick={() => handleQuickAddCustomEmail(member.email)}
+                                  className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                                    selected
+                                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:border-[#1F6E82]'
+                                  }`}
+                                >
+                                  {selected ? '✓ ' : '+ '}
+                                  {member.email}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -398,7 +626,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                 answer index.
               </p>
 
-              <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 bg-white rounded-lg p-5 text-center hover:border-blue-500 transition-colors cursor-pointer">
+              <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 bg-white rounded-lg p-5 text-center hover:border-[#1F6E82] transition-colors cursor-pointer">
                 <Upload className="w-5 h-5 text-slate-500 mb-2" />
                 <span className="text-xs font-medium text-slate-900">
                   {excelFileName ? `Uploaded: ${excelFileName}` : 'Choose .xlsx, .xls, or .csv'}
@@ -500,7 +728,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                           prev.map((item, i) => (i === idx ? { ...item, question: val } : item)),
                         );
                       }}
-                      className="w-full text-sm font-medium text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none pb-0.5"
+                      className="w-full text-sm font-medium text-slate-900 bg-transparent border-b border-transparent focus:border-[#1F6E82] focus:outline-none pb-0.5"
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       {q.options.map((opt, oIdx) => {
@@ -583,7 +811,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#1F6E82] rounded-lg hover:bg-[#175768] disabled:opacity-60 transition-colors cursor-pointer"
           >
             <Film className="w-4 h-4" />
             <span>
@@ -599,29 +827,43 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
 
       {/* Published Video Library Table */}
       <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">Published Video Library</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Modules are sequenced by Order Index inside each team window.
-            </p>
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Published Video Library</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Modules run sequentially: Before Onboarding levels first, then After Onboarding
+                levels.
+              </p>
+            </div>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search modules..."
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1F6E82] focus:bg-white"
+              />
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg overflow-x-auto">
               {(
                 [
-                  { id: 'all', label: 'All' },
+                  { id: 'all', label: 'All Audiences' },
                   { id: 'operations', label: 'Operations' },
                   { id: 'sales', label: 'Sales' },
-                  { id: 'both', label: 'Both' },
+                  { id: 'both', label: 'Ops & Sales' },
+                  { id: 'custom', label: 'Custom Audience' },
                 ] as const
               ).map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setSegmentFilter(tab.id)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                     segmentFilter === tab.id
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
@@ -632,15 +874,27 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
               ))}
             </div>
 
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search modules..."
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
-              />
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+              {(
+                [
+                  { id: 'all', label: 'All Stages' },
+                  { id: 'pre_onboarding', label: 'Before Onboarding' },
+                  { id: 'post_onboarding', label: 'After Onboarding' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStageFilter(tab.id)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                    stageFilter === tab.id
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -651,7 +905,8 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
               <tr className="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">
                 <th className="py-3 px-4">Order</th>
                 <th className="py-3 px-4">Video Name</th>
-                <th className="py-3 px-4">Access Segment</th>
+                <th className="py-3 px-4">Onboarding Stage</th>
+                <th className="py-3 px-4">Audience</th>
                 <th className="py-3 px-4 text-right">Questions</th>
                 <th className="py-3 px-4 text-right">Pass %</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -660,7 +915,7 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
             <tbody className="divide-y divide-slate-100 text-sm">
               {filteredVideos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-xs text-slate-500">
+                  <td colSpan={7} className="py-10 text-center text-xs text-slate-500">
                     No training videos match the current filter.
                   </td>
                 </tr>
@@ -676,12 +931,16 @@ export const VideoUploadManager: React.FC<VideoUploadManagerProps> = ({ videos, 
                         Drive ID: {video.driveFileId}
                       </p>
                     </td>
+                    <td className="py-3 px-4 text-xs font-medium text-slate-700 whitespace-nowrap">
+                      {formatStageLabel(video.onboardingStage)}
+                    </td>
                     <td className="py-3 px-4 text-xs text-slate-700">
-                      {video.segment === 'both'
-                        ? 'Operations & Sales'
-                        : video.segment === 'operations'
-                          ? 'Operations'
-                          : 'Sales'}
+                      <p>{formatSegmentLabel(video.segment, video.customEmails)}</p>
+                      {video.segment === 'custom_list' && video.customEmails.length > 0 && (
+                        <p className="text-slate-400 truncate max-w-[200px]">
+                          {video.customEmails.join(', ')}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right font-mono text-xs text-slate-700 tabular-nums">
                       {video.questions.length}

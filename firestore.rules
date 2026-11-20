@@ -59,16 +59,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/teamAccess/$(userEmail())).data;
     }
 
-    function hasSegmentAccess(segment) {
-      return hasTeamAccessRecord() && (
-        (segment == 'operations' && teamAccessData().operationsAccess == true) ||
-        (segment == 'sales' && teamAccessData().salesAccess == true) ||
-        (segment == 'both' && (teamAccessData().operationsAccess == true || teamAccessData().salesAccess == true))
+    function hasVideoAccess(videoData) {
+      return (
+        (videoData.segment == 'operations' && hasTeamAccessRecord() && teamAccessData().operationsAccess == true) ||
+        (videoData.segment == 'sales' && hasTeamAccessRecord() && teamAccessData().salesAccess == true) ||
+        (videoData.segment == 'both' && hasTeamAccessRecord() && (teamAccessData().operationsAccess == true || teamAccessData().salesAccess == true)) ||
+        (videoData.segment == 'custom' && hasTeamAccessRecord() && ('customAccess' in teamAccessData()) && teamAccessData().customAccess == true) ||
+        (('customEmails' in videoData) && videoData.customEmails is list && userEmail() in videoData.customEmails)
       );
     }
 
     function isValidSegment(segment) {
-      return segment is string && segment in ['sales', 'operations', 'both'];
+      return segment is string && segment in ['sales', 'operations', 'both', 'custom', 'custom_list'];
+    }
+
+    function isValidOnboardingStage(stage) {
+      return stage is string && stage in ['pre_onboarding', 'post_onboarding'];
     }
 
     // -------------------------------------------------------------------------
@@ -86,12 +92,13 @@ service cloud.firestore {
 
     function isValidTeamAccess(data, emailId) {
       return data.keys().hasAll(['email', 'operationsAccess', 'salesAccess', 'updatedBy', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['email', 'displayName', 'operationsAccess', 'salesAccess', 'updatedBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'operationsAccess', 'salesAccess', 'customAccess', 'updatedBy', 'createdAt', 'updatedAt'])
         && isValidEmailId(data.email)
         && data.email == emailId
         && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
         && data.operationsAccess is bool
         && data.salesAccess is bool
+        && (!('customAccess' in data) || data.customAccess is bool)
         && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
         && data.updatedBy == request.auth.uid
         && data.createdAt is timestamp
@@ -116,12 +123,18 @@ service cloud.firestore {
 
     function isValidTrainingVideo(data) {
       return data.keys().hasAll(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'createdBy', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'onboardingStage', 'customEmails', 'orderIndex', 'passingScore', 'questions', 'createdBy', 'createdAt', 'updatedAt'])
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
         && data.description is string && data.description.size() <= 1000
         && data.driveUrl is string && data.driveUrl.size() >= 10 && data.driveUrl.size() <= 500
         && isValidId(data.driveFileId)
         && isValidSegment(data.segment)
+        && (!('onboardingStage' in data) || isValidOnboardingStage(data.onboardingStage))
+        && (!('customEmails' in data) || (
+          data.customEmails is list
+          && data.customEmails.size() <= 50
+          && (data.customEmails.size() == 0 || isValidEmailId(data.customEmails[0]))
+        ))
         && data.orderIndex is number && data.orderIndex >= 0 && data.orderIndex <= 10000
         && data.passingScore is number && data.passingScore >= 1 && data.passingScore <= 100
         && data.questions is list && data.questions.size() <= 50
@@ -180,6 +193,37 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    function isValidAccessRequest(data, emailId) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'requestedTeam', 'note', 'status', 'reviewedBy', 'reviewedAt', 'reviewNote', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'requestedTeam', 'note', 'status', 'reviewedBy', 'reviewedAt', 'reviewNote', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && isValidEmailId(data.email)
+        && data.email == emailId
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.requestedTeam is string && data.requestedTeam == 'sales'
+        && data.note is string && data.note.size() <= 300
+        && data.status is string && data.status in ['pending', 'approved', 'rejected']
+        && data.reviewedBy is string && data.reviewedBy.size() <= 128
+        && (data.reviewedAt == null || data.reviewedAt is timestamp)
+        && data.reviewNote is string && data.reviewNote.size() <= 300
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLoginLog(data) {
+      return data.keys().hasAll(['uid', 'userEmail', 'userName', 'accessRole', 'status', 'deviceInfo', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'userEmail', 'userName', 'accessRole', 'status', 'deviceInfo', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidEmailId(data.userEmail)
+        && data.userEmail == userEmail()
+        && data.userName is string && data.userName.size() <= 120
+        && data.accessRole is string && data.accessRole in ['admin', 'operations', 'sales', 'custom', 'multi_team', 'pending_approval']
+        && data.status is string && data.status in ['granted', 'pending_approval', 'rejected']
+        && data.deviceInfo is string && data.deviceInfo.size() <= 160
+        && data.createdAt is timestamp;
+    }
+
     // -------------------------------------------------------------------------
     // Collection Rules
     // -------------------------------------------------------------------------
@@ -196,7 +240,7 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidEmailId(emailId) && !(emailId in ['sankhyayan@gmail.com', 'racforge@gmail.com']);
     }
 
-    // Team Access Allowlist (Operations & Sales Windows)
+    // Team Access Allowlist (Operations, Sales, and Custom Audience Windows)
     match /teamAccess/{emailId} {
       allow get: if isValidEmailId(emailId) && (isAdmin() || (isSignedIn() && emailId == userEmail()));
       allow list: if isAdmin();
@@ -208,7 +252,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && isValidEmailId(emailId)
         && isValidTeamAccess(incoming(), emailId)
-        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'operationsAccess', 'salesAccess', 'updatedBy', 'updatedAt'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'operationsAccess', 'salesAccess', 'customAccess', 'updatedBy', 'updatedAt'])
         && incoming().email == existing().email
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time;
@@ -239,8 +283,8 @@ service cloud.firestore {
 
     // Training Videos
     match /videos/{videoId} {
-      allow get: if isValidId(videoId) && (isAdmin() || (isSignedIn() && hasSegmentAccess(existing().segment)));
-      allow list: if isAdmin() || (isSignedIn() && hasSegmentAccess(existing().segment));
+      allow get: if isValidId(videoId) && (isAdmin() || (isSignedIn() && hasVideoAccess(existing())));
+      allow list: if isAdmin() || (isSignedIn() && hasVideoAccess(existing()));
       allow create: if isAdmin()
         && isValidId(videoId)
         && isValidTrainingVideo(incoming())
@@ -250,7 +294,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && isValidId(videoId)
         && isValidTrainingVideo(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'orderIndex', 'passingScore', 'questions', 'updatedAt'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'driveUrl', 'driveFileId', 'segment', 'onboardingStage', 'customEmails', 'orderIndex', 'passingScore', 'questions', 'updatedAt'])
         && incoming().createdBy == existing().createdBy
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time;
@@ -266,7 +310,7 @@ service cloud.firestore {
         && isValidProgress(incoming())
         && progressId == (request.auth.uid + '_' + incoming().videoId)
         && exists(/databases/$(database)/documents/videos/$(incoming().videoId))
-        && (isAdmin() || hasSegmentAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data.segment))
+        && (isAdmin() || hasVideoAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data))
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && incoming().lastAccessedAt == request.time;
@@ -307,10 +351,85 @@ service cloud.firestore {
         && isValidId(eventId)
         && isValidEngagementEvent(incoming())
         && exists(/databases/$(database)/documents/videos/$(incoming().videoId))
-        && (isAdmin() || hasSegmentAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data.segment))
+        && (isAdmin() || hasVideoAccess(get(/databases/$(database)/documents/videos/$(incoming().videoId)).data))
         && incoming().createdAt == request.time;
       allow update: if false;
       allow delete: if isAdmin() && isValidId(eventId);
+    }
+
+    // Sales Team (BDM) Access Approval Requests
+    match /accessRequests/{emailId} {
+      allow get: if isValidEmailId(emailId) && (isAdmin() || (isSignedIn() && emailId == userEmail()));
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidEmailId(emailId)
+        && emailId == userEmail()
+        && isValidAccessRequest(incoming(), emailId)
+        && incoming().uid == request.auth.uid
+        && incoming().email == userEmail()
+        && incoming().requestedTeam == 'sales'
+        && incoming().status == 'pending'
+        && incoming().reviewedBy == ''
+        && incoming().reviewedAt == null
+        && incoming().reviewNote == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidEmailId(emailId)
+        && isValidAccessRequest(incoming(), emailId)
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Admin approves or rejects the Sales BDM request
+          (
+            isAdmin()
+            && incoming().uid == existing().uid
+            && incoming().requestedTeam == existing().requestedTeam
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt', 'reviewNote', 'updatedAt'])
+            && incoming().reviewedBy == request.auth.uid
+            && incoming().reviewedAt == request.time
+          )
+          // Action 2: Applicant updates their details while request is pending
+          || (
+            emailId == userEmail()
+            && existing().uid == request.auth.uid
+            && existing().status == 'pending'
+            && incoming().status == 'pending'
+            && incoming().uid == existing().uid
+            && incoming().requestedTeam == 'sales'
+            && incoming().reviewedBy == existing().reviewedBy
+            && incoming().reviewedAt == existing().reviewedAt
+            && incoming().reviewNote == existing().reviewNote
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'note', 'updatedAt'])
+          )
+          // Action 3: Applicant resubmits after rejection
+          || (
+            emailId == userEmail()
+            && existing().uid == request.auth.uid
+            && existing().status == 'rejected'
+            && incoming().status == 'pending'
+            && incoming().uid == existing().uid
+            && incoming().requestedTeam == 'sales'
+            && incoming().reviewedBy == ''
+            && incoming().reviewedAt == null
+            && incoming().reviewNote == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'note', 'status', 'reviewedBy', 'reviewedAt', 'reviewNote', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin() && isValidEmailId(emailId);
+    }
+
+    // Immutable Login Audit Logs
+    match /loginLogs/{logId} {
+      allow get: if isValidId(logId) && (isAdmin() || (isSignedIn() && existing().uid == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(logId)
+        && isValidLoginLog(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(logId);
     }
   }
 }

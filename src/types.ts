@@ -1,7 +1,8 @@
 import type { Timestamp } from 'firebase/firestore';
 
-export type Segment = 'sales' | 'operations' | 'both';
-export type TrackSegment = 'sales' | 'operations';
+export type Segment = 'sales' | 'operations' | 'both' | 'custom' | 'custom_list';
+export type TrackSegment = 'sales' | 'operations' | 'custom';
+export type OnboardingStage = 'pre_onboarding' | 'post_onboarding';
 
 export const BLUEPRINT_LIMITS = {
   TITLE_MAX: 200,
@@ -11,6 +12,7 @@ export const BLUEPRINT_LIMITS = {
   EMAIL_MAX: 254,
   DISPLAY_NAME_MAX: 120,
   MAX_QUESTIONS: 50,
+  MAX_CUSTOM_EMAILS: 50,
   QUESTION_MAX: 500,
   OPTION_MAX: 300,
   EMAIL_PATTERN: /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/,
@@ -30,6 +32,8 @@ export interface TrainingVideo {
   driveUrl: string;
   driveFileId: string;
   segment: Segment;
+  onboardingStage: OnboardingStage;
+  customEmails: string[];
   orderIndex: number;
   passingScore: number;
   questions: QuizQuestion[];
@@ -43,6 +47,7 @@ export interface TeamAccessRecord {
   displayName?: string;
   operationsAccess: boolean;
   salesAccess: boolean;
+  customAccess: boolean;
   updatedBy: string;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
@@ -107,4 +112,42 @@ export interface AuthAccessState {
   isAdmin: boolean;
   operationsAccess: boolean;
   salesAccess: boolean;
+  customAccess: boolean;
+}
+
+export type AccessRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AccessRequestRecord {
+  uid: string;
+  email: string;
+  displayName: string;
+  requestedTeam: 'sales';
+  note: string;
+  status: AccessRequestStatus;
+  reviewedBy: string;
+  reviewedAt: Timestamp | null;
+  reviewNote: string;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+}
+
+export type LoginAccessRole =
+  | 'admin'
+  | 'operations'
+  | 'sales'
+  | 'custom'
+  | 'multi_team'
+  | 'pending_approval';
+
+export type LoginStatus = 'granted' | 'pending_approval' | 'rejected';
+
+export interface LoginLogRecord {
+  id: string;
+  uid: string;
+  userEmail: string;
+  userName: string;
+  accessRole: LoginAccessRole;
+  status: LoginStatus;
+  deviceInfo: string;
+  createdAt: Timestamp | null;
 }

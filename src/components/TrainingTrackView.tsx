@@ -11,13 +11,16 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import {
+  normalizeEmail,
   recordVideoOpen,
   recordWatchHeartbeat,
+  sortTrainingVideos,
   submitQuestionnaireAttempt,
   type QuizSubmissionResult,
 } from '../services/firestoreService';
-import type { TrackSegment, TrainingVideo, UserVideoProgress } from '../types';
+import type { OnboardingStage, TrackSegment, TrainingVideo, UserVideoProgress } from '../types';
 import { getDriveExternalUrl, getDrivePreviewUrl } from '../utils/drive';
+import { formatSegmentLabel, formatStageLabel } from './VideoUploadManager';
 
 interface TrainingTrackViewProps {
   track: TrackSegment;
@@ -41,11 +44,21 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
   user,
   isAdmin,
 }) => {
-  const trackVideos = useMemo(
-    () =>
-      videos.filter((v) => v.segment === track || v.segment === 'both'),
-    [videos, track],
-  );
+  const userEmail = normalizeEmail(user.email ?? '');
+
+  const trackVideos = useMemo(() => {
+    const filtered = videos.filter((v) => {
+      if (track === 'operations') return v.segment === 'operations' || v.segment === 'both';
+      if (track === 'sales') return v.segment === 'sales' || v.segment === 'both';
+      // Custom Audience window
+      if (v.segment === 'custom') return true;
+      if (v.segment === 'custom_list') {
+        return isAdmin || v.customEmails.includes(userEmail);
+      }
+      return false;
+    });
+    return sortTrainingVideos(filtered);
+  }, [videos, track, isAdmin, userEmail]);
 
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [adminUnlockAll, setAdminUnlockAll] = useState<boolean>(false);
@@ -54,7 +67,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
   const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
   const [quizError, setQuizError] = useState<string | null>(null);
 
-  // Determine unlocked status per module sequentially
+  // Determine unlocked status per module sequentially (Before Onboarding -> After Onboarding)
   const unlockedMap = useMemo(() => {
     const map: Record<string, boolean> = {};
     trackVideos.forEach((video, index) => {
@@ -95,7 +108,6 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
       ? trackVideos[activeVideoIndex + 1]
       : null;
 
-  // Reset quiz UI when switching videos
   useEffect(() => {
     setSelectedAnswers({});
     setQuizResult(null);
@@ -123,11 +135,37 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
     };
   }, [activeVideo, unlockedMap, user]);
 
-  const completedCount = trackVideos.filter((v) => progressMap[v.id]?.passed).length;
+  const preVideos = useMemo(
+    () => trackVideos.filter((v) => v.onboardingStage === 'pre_onboarding'),
+    [trackVideos],
+  );
+  const postVideos = useMemo(
+    () => trackVideos.filter((v) => v.onboardingStage === 'post_onboarding'),
+    [trackVideos],
+  );
+
+  const prePassed = preVideos.filter((v) => progressMap[v.id]?.passed).length;
+  const postPassed = postVideos.filter((v) => progressMap[v.id]?.passed).length;
+  const completedCount = prePassed + postPassed;
+  const remainingCount = trackVideos.length - completedCount;
   const completionPct =
     trackVideos.length > 0 ? Math.round((completedCount / trackVideos.length) * 100) : 0;
 
-  const trackTitle = track === 'operations' ? 'Operations Training Window' : 'Sales Training Window';
+  const currentStageLabel =
+    trackVideos.length === 0
+      ? 'No Modules'
+      : completedCount === trackVideos.length
+        ? 'All Stages Completed'
+        : prePassed < preVideos.length
+          ? 'Stage 1: Before Onboarding'
+          : 'Stage 2: After Onboarding';
+
+  const trackTitle =
+    track === 'operations'
+      ? 'Operations Training Window'
+      : track === 'sales'
+        ? 'Sales Training Window'
+        : 'Custom Audience Training Window';
 
   const handleSelectOption = (questionIndex: number, optionIndex: number) => {
     setSelectedAnswers((prev) => ({ ...prev, [questionIndex]: optionIndex }));
@@ -171,15 +209,41 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
       <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
         <Play className="w-8 h-8 text-slate-400 mx-auto mb-3" />
         <h2 className="text-base font-semibold text-slate-900">
-          No training modules assigned to {track === 'operations' ? 'Operations' : 'Sales'} yet
+          No training modules assigned to{' '}
+          {track === 'operations'
+            ? 'Operations'
+            : track === 'sales'
+              ? 'Sales'
+              : 'Custom Audience'}{' '}
+          yet
         </h2>
         <p className="text-sm text-slate-500 max-w-md mx-auto mt-1.5">
-          Once an administrator publishes Google Drive training videos for this team window, they
-          will appear here in sequential order.
+          Once an administrator publishes training modules for this window, they will appear here
+          organized by Before Onboarding and After Onboarding stages.
         </p>
       </div>
     );
   }
+
+  const stageGroups: Array<{
+    key: OnboardingStage;
+    heading: string;
+    items: TrainingVideo[];
+    passedCount: number;
+  }> = [
+    {
+      key: 'pre_onboarding' as const,
+      heading: 'Before Onboarding',
+      items: preVideos,
+      passedCount: prePassed,
+    },
+    {
+      key: 'post_onboarding' as const,
+      heading: 'After Onboarding',
+      items: postVideos,
+      passedCount: postPassed,
+    },
+  ].filter((g) => g.items.length > 0);
 
   return (
     <div className="space-y-6">
@@ -188,7 +252,8 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
         <div>
           <h1 className="text-xl font-bold text-slate-900">{trackTitle}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Watch each training video and pass its questionnaire to unlock the next module.
+            {currentStageLabel} · Level {completedCount} of {trackVideos.length} completed ·{' '}
+            {remainingCount} remaining
           </p>
         </div>
 
@@ -199,14 +264,14 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
               onClick={() => setAdminUnlockAll((prev) => !prev)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 adminUnlockAll
-                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  ? 'bg-teal-50 border-teal-200 text-[#0D2C45]'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
               {adminUnlockAll ? 'Admin Preview: All Unlocked' : 'Admin Preview: Enforced Gating'}
             </button>
           )}
-          <div className="min-w-[180px]">
+          <div className="min-w-[190px]">
             <div className="flex items-center justify-between text-xs text-slate-600 mb-1.5">
               <span>Track Progress</span>
               <span className="font-mono font-medium tabular-nums">
@@ -215,7 +280,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
             </div>
             <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all duration-300"
+                className="h-full bg-[#1F6E82] transition-all duration-300"
                 style={{ width: `${completionPct}%` }}
               />
             </div>
@@ -225,74 +290,94 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
 
       {/* Main Split: Sequential Playlist + Active Player & Quiz */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Module Sequence */}
+        {/* Left: Module Sequence Grouped by Onboarding Stage */}
         <aside className="lg:col-span-4 bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Curriculum Sequence</h2>
             <span className="font-mono text-xs text-slate-500 tabular-nums">
-              {trackVideos.length} modules
+              {trackVideos.length} levels
             </span>
           </div>
-          <div className="divide-y divide-slate-100">
-            {trackVideos.map((video, idx) => {
-              const unlocked = Boolean(unlockedMap[video.id]);
-              const prog = progressMap[video.id];
-              const isPassed = Boolean(prog?.passed);
-              const isSelected = video.id === activeVideo?.id;
 
-              return (
-                <button
-                  key={video.id}
-                  type="button"
-                  disabled={!unlocked}
-                  onClick={() => unlocked && setSelectedVideoId(video.id)}
-                  className={`w-full text-left px-5 py-4 transition-colors flex items-start gap-3.5 ${
-                    isSelected
-                      ? 'bg-blue-50/70'
-                      : unlocked
-                        ? 'hover:bg-slate-50 cursor-pointer'
-                        : 'bg-slate-50/50 opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {isPassed ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : unlocked ? (
-                      <Play
-                        className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-600'}`}
-                      />
-                    ) : (
-                      <Lock className="w-4 h-4 text-slate-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs text-slate-500 tabular-nums">
-                        Module {String(idx + 1).padStart(2, '0')}
-                      </span>
-                      <span
-                        className={`text-xs font-medium whitespace-nowrap ${
-                          isPassed
-                            ? 'text-emerald-700'
+          <div className="divide-y divide-slate-200">
+            {stageGroups.map((group) => (
+              <div key={group.key}>
+                <div className="px-5 py-2.5 bg-slate-50 flex items-center justify-between text-xs font-semibold text-[#0D2C45]">
+                  <span>{group.heading}</span>
+                  <span className="font-mono text-slate-500 tabular-nums">
+                    {group.passedCount}/{group.items.length} passed
+                  </span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {group.items.map((video) => {
+                    const globalIdx = trackVideos.findIndex((v) => v.id === video.id);
+                    const unlocked = Boolean(unlockedMap[video.id]);
+                    const prog = progressMap[video.id];
+                    const isPassed = Boolean(prog?.passed);
+                    const isSelected = video.id === activeVideo?.id;
+
+                    return (
+                      <button
+                        key={video.id}
+                        type="button"
+                        disabled={!unlocked}
+                        onClick={() => unlocked && setSelectedVideoId(video.id)}
+                        className={`w-full text-left px-5 py-4 transition-colors flex items-start gap-3.5 ${
+                          isSelected
+                            ? 'bg-teal-50/70'
                             : unlocked
-                              ? 'text-blue-700'
-                              : 'text-slate-500'
+                              ? 'hover:bg-slate-50 cursor-pointer'
+                              : 'bg-slate-50/50 opacity-60 cursor-not-allowed'
                         }`}
                       >
-                        {isPassed ? `Passed · ${prog?.bestScore ?? 100}%` : unlocked ? 'Unlocked' : 'Locked'}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-slate-900 mt-1 truncate">
-                      {video.title}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {video.questions.length} questions · Pass {video.passingScore}%
-                      {video.segment === 'both' ? ' · Shared' : ''}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                        <div className="mt-0.5 shrink-0">
+                          {isPassed ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : unlocked ? (
+                            <Play
+                              className={`w-4 h-4 ${
+                                isSelected ? 'text-[#1F6E82]' : 'text-slate-600'
+                              }`}
+                            />
+                          ) : (
+                            <Lock className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-xs text-slate-500 tabular-nums">
+                              Level {String(globalIdx + 1).padStart(2, '0')}
+                            </span>
+                            <span
+                              className={`text-xs font-medium whitespace-nowrap ${
+                                isPassed
+                                  ? 'text-emerald-700'
+                                  : unlocked
+                                    ? 'text-[#1F6E82]'
+                                    : 'text-slate-500'
+                              }`}
+                            >
+                              {isPassed
+                                ? `Passed · ${prog?.bestScore ?? 100}%`
+                                : unlocked
+                                  ? 'Unlocked'
+                                  : 'Locked'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-slate-900 mt-1 truncate">
+                            {video.title}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {video.questions.length} questions · Pass {video.passingScore}%
+                            {video.segment === 'both' ? ' · Shared' : ''}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </aside>
 
@@ -303,18 +388,16 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                     <span className="font-mono tabular-nums">
-                      Module {String(activeVideoIndex + 1).padStart(2, '0')}
+                      Level {String(activeVideoIndex + 1).padStart(2, '0')}
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span>
-                      {activeVideo.segment === 'both'
-                        ? 'Operations & Sales'
-                        : activeVideo.segment === 'operations'
-                          ? 'Operations'
-                          : 'Sales'}
+                    <span className="font-medium text-[#0D2C45]">
+                      {formatStageLabel(activeVideo.onboardingStage)}
                     </span>
+                    <span aria-hidden="true">·</span>
+                    <span>{formatSegmentLabel(activeVideo.segment, activeVideo.customEmails)}</span>
                     {activeProgress && (
                       <>
                         <span aria-hidden="true">·</span>
@@ -363,12 +446,12 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-100">
                 <div>
                   <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                    <HelpCircle className="w-4 h-4 text-blue-600" />
+                    <HelpCircle className="w-4 h-4 text-[#1F6E82]" />
                     <span>Module Questionnaire</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {activeVideo.questions.length > 0
-                      ? `Score at least ${activeVideo.passingScore}% across ${activeVideo.questions.length} questions to unlock the next module.`
+                      ? `Score at least ${activeVideo.passingScore}% across ${activeVideo.questions.length} questions to unlock the next level.`
                       : 'No questions configured for this video. Confirm completion to continue.'}
                   </p>
                 </div>
@@ -382,7 +465,6 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
                 )}
               </div>
 
-              {/* Result Feedback */}
               {(quizResult || activeProgress?.passed) && (
                 <div
                   className={`mb-6 p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
@@ -402,7 +484,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
                     <p className="text-xs mt-0.5 opacity-90">
                       {(quizResult ? quizResult.passed : activeProgress?.passed)
                         ? nextVideo
-                          ? `Next module unlocked: ${nextVideo.title}`
+                          ? `Next level unlocked: ${nextVideo.title}`
                           : 'You have completed all modules currently in this track.'
                         : 'Review the video and adjust your answers to pass.'}
                     </p>
@@ -456,7 +538,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
                             key={oIdx}
                             className={`flex items-start gap-2.5 p-3 rounded-lg border text-sm transition-colors cursor-pointer ${
                               checked
-                                ? 'bg-blue-50 border-blue-400 text-slate-900'
+                                ? 'bg-teal-50 border-[#1F6E82] text-slate-900'
                                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                             }`}
                           >
@@ -466,7 +548,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
                               value={oIdx}
                               checked={checked}
                               onChange={() => handleSelectOption(qIdx, oIdx)}
-                              className="mt-0.5 accent-blue-600 shrink-0"
+                              className="mt-0.5 accent-[#0D2C45] shrink-0"
                             />
                             <span className="leading-snug">{opt}</span>
                           </label>
@@ -480,7 +562,7 @@ export const TrainingTrackView: React.FC<TrainingTrackViewProps> = ({
                   <button
                     type="submit"
                     disabled={submittingQuiz}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-60 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#0D2C45] rounded-lg hover:bg-[#133b5c] disabled:opacity-60 transition-colors cursor-pointer"
                   >
                     <span>
                       {submittingQuiz

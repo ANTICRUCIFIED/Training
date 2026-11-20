@@ -54,6 +54,10 @@
           "type": "boolean",
           "description": "Whether the user can access Sales training videos."
         },
+        "customAccess": {
+          "type": "boolean",
+          "description": "Whether the user can access Custom Audience training videos."
+        },
         "updatedBy": {
           "type": "string",
           "description": "UID of the admin who last updated this access record.",
@@ -167,8 +171,17 @@
         },
         "segment": {
           "type": "string",
-          "enum": ["sales", "operations", "both"],
-          "description": "Target team segment access."
+          "enum": ["sales", "operations", "both", "custom", "custom_list"],
+          "description": "Target team or custom audience segment access."
+        },
+        "onboardingStage": {
+          "type": "string",
+          "enum": ["pre_onboarding", "post_onboarding"],
+          "description": "Whether the module belongs to Before Onboarding or After Onboarding."
+        },
+        "customEmails": {
+          "type": "array",
+          "description": "Optional bounded allowlist of specific lowercase emails granted access when segment is custom_list (max 50)."
         },
         "orderIndex": {
           "type": "number",
@@ -246,7 +259,7 @@
         },
         "segment": {
           "type": "string",
-          "enum": ["sales", "operations", "both"],
+          "enum": ["sales", "operations", "both", "custom", "custom_list"],
           "description": "Video segment at time of engagement."
         },
         "viewCount": {
@@ -339,7 +352,7 @@
         },
         "segment": {
           "type": "string",
-          "enum": ["sales", "operations", "both"],
+          "enum": ["sales", "operations", "both", "custom", "custom_list"],
           "description": "Training segment."
         },
         "eventType": {
@@ -372,6 +385,148 @@
         "watchSecondsDelta",
         "createdAt"
       ]
+    },
+    "AccessRequest": {
+      "title": "AccessRequest",
+      "description": "Self-initiated Sales Team (BDM) signup approval request created when a signed-in user is not yet on any allowlist. Operations access remains admin-assigned only.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Applicant Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Applicant lowercase Google email address.",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Applicant display name.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "requestedTeam": {
+          "type": "string",
+          "enum": ["sales"],
+          "description": "Requested team window (strictly Sales BDM)."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional applicant details such as phone, city, or manager name.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Current admin approval status."
+        },
+        "reviewedBy": {
+          "type": "string",
+          "description": "UID of the admin who approved or rejected the request.",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "reviewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of admin review."
+        },
+        "reviewNote": {
+          "type": "string",
+          "description": "Optional remark entered by the reviewing administrator.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when request was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest update."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "requestedTeam",
+        "note",
+        "status",
+        "reviewedBy",
+        "reviewedAt",
+        "reviewNote",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LoginLog": {
+      "title": "LoginLog",
+      "description": "Immutable login audit log recording user sign-ins, access state, and device metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Signed-in Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Signed-in lowercase email address.",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name at sign-in.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "accessRole": {
+          "type": "string",
+          "enum": ["admin", "operations", "sales", "custom", "multi_team", "pending_approval"],
+          "description": "Resolved role/window at sign-in."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["granted", "pending_approval", "rejected"],
+          "description": "Access outcome at sign-in."
+        },
+        "deviceInfo": {
+          "type": "string",
+          "description": "Short browser and platform summary.",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server login timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "userEmail",
+        "userName",
+        "accessRole",
+        "status",
+        "deviceInfo",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
@@ -398,6 +553,14 @@
     "/engagementEvents/{eventId}": {
       "schema": { "$ref": "#/entities/EngagementEvent" },
       "description": "Append-only video engagement and quiz submission analytics log."
+    },
+    "/accessRequests/{emailId}": {
+      "schema": { "$ref": "#/entities/AccessRequest" },
+      "description": "Pending and reviewed Sales Team (BDM) signup approval requests keyed by lowercase email address."
+    },
+    "/loginLogs/{logId}": {
+      "schema": { "$ref": "#/entities/LoginLog" },
+      "description": "Append-only login audit trail per user session."
     }
   }
 }

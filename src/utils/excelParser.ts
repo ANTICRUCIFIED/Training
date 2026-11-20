@@ -212,11 +212,50 @@ export function downloadQuestionnaireTemplate(): void {
 export function exportAnalyticsWorkbook(
   videoRows: Array<Record<string, string | number>>,
   learnerRows: Array<Record<string, string | number>>,
+  matrixRows?: Array<Record<string, string | number>>,
+  loginLogRows?: Array<Record<string, string | number>>,
+  learningLogRows?: Array<Record<string, string | number>>,
 ): void {
   const wb = XLSX.utils.book_new();
   const videoSheet = XLSX.utils.json_to_sheet(videoRows);
   const learnerSheet = XLSX.utils.json_to_sheet(learnerRows);
   XLSX.utils.book_append_sheet(wb, videoSheet, 'Video Engagement');
-  XLSX.utils.book_append_sheet(wb, learnerSheet, 'Learner Progress');
+  XLSX.utils.book_append_sheet(wb, learnerSheet, 'User Stage & Defaulters');
+  if (matrixRows && matrixRows.length > 0) {
+    const matrixSheet = XLSX.utils.json_to_sheet(matrixRows);
+    XLSX.utils.book_append_sheet(wb, matrixSheet, 'Per-User Video Status');
+  }
+  if (loginLogRows && loginLogRows.length > 0) {
+    const loginSheet = XLSX.utils.json_to_sheet(loginLogRows);
+    XLSX.utils.book_append_sheet(wb, loginSheet, 'Login Logs');
+  }
+  if (learningLogRows && learningLogRows.length > 0) {
+    const learningSheet = XLSX.utils.json_to_sheet(learningLogRows);
+    XLSX.utils.book_append_sheet(wb, learningSheet, 'Learning Logs');
+  }
   XLSX.writeFile(wb, 'racforge_training_analytics.xlsx');
+}
+
+export function exportIndividualUserReport(
+  userEmail: string,
+  summaryRows: Array<Record<string, string | number>>,
+  videoStatusRows: Array<Record<string, string | number>>,
+  loginLogRows?: Array<Record<string, string | number>>,
+  learningLogRows?: Array<Record<string, string | number>>,
+): void {
+  const wb = XLSX.utils.book_new();
+  const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+  const detailSheet = XLSX.utils.json_to_sheet(videoStatusRows);
+  XLSX.utils.book_append_sheet(wb, summarySheet, 'Learner Summary');
+  XLSX.utils.book_append_sheet(wb, detailSheet, 'Video Status Detail');
+  if (loginLogRows && loginLogRows.length > 0) {
+    const loginSheet = XLSX.utils.json_to_sheet(loginLogRows);
+    XLSX.utils.book_append_sheet(wb, loginSheet, 'Login Logs');
+  }
+  if (learningLogRows && learningLogRows.length > 0) {
+    const learningSheet = XLSX.utils.json_to_sheet(learningLogRows);
+    XLSX.utils.book_append_sheet(wb, learningSheet, 'Learning Logs');
+  }
+  const safeName = userEmail.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase();
+  XLSX.writeFile(wb, `racforge_user_report_${safeName}.xlsx`);
 }
