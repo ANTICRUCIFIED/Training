@@ -93,18 +93,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <a
-              href="#overview"
-              className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
-            >
-              Overview
-            </a>
-            <a
-              href="#security"
-              className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
-            >
-              Data &amp; Security
-            </a>
-            <a
               href="/privacy"
               onClick={(e) => handleFooterNav(e, '/privacy')}
               className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
@@ -117,6 +105,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
               className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
             >
               Terms of Service
+            </a>
+            <a
+              href="https://www.racforge.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
+            >
+              racforge.com
             </a>
           </nav>
 
