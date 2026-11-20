@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RAC Forge Training Portal — RAC Forge Pvt. Ltd.</title>
+    <title>RAC Forge Pvt. Ltd. training portal — RAC Forge Pvt. Ltd.</title>
     <link
       rel="icon"
       type="image/jpeg"
@@ -11,12 +11,12 @@
     />
     <meta
       name="description"
-      content="Authorized training and compliance learning portal operated by RAC Forge Pvt. Ltd. (https://www.racforge.com)."
+      content="RAC Forge Pvt. Ltd. training portal (https://training.racforge.com) — Authorized onboarding and compliance learning portal operated by RAC Forge Pvt. Ltd. (https://www.racforge.com)."
     />
-    <meta property="og:title" content="RAC Forge Training Portal — RAC Forge Pvt. Ltd." />
+    <meta property="og:title" content="RAC Forge Pvt. Ltd. training portal" />
     <meta
       property="og:description"
-      content="Authorized training and compliance learning portal operated by RAC Forge Pvt. Ltd. (https://www.racforge.com)."
+      content="Authorized onboarding and compliance learning portal operated by RAC Forge Pvt. Ltd. (https://www.racforge.com)."
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -28,7 +28,30 @@
     />
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-teal-100 selection:text-slate-900">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Semantic fallback for non-JS crawlers (e.g., Google OAuth verification); immediately replaced by React on load -->
+      <main style="max-width:760px;margin:48px auto;padding:24px;font-family:system-ui,sans-serif;color:#0f172a;line-height:1.6;">
+        <h1>RAC Forge Pvt. Ltd. training portal</h1>
+        <p>
+          Authorized onboarding and compliance training portal operated by
+          <strong>RAC Forge Pvt. Ltd.</strong>
+          (<a href="https://www.racforge.com">https://www.racforge.com</a>).
+        </p>
+        <p>
+          This portal uses Google Sign-In (Firebase Authentication) solely for basic identity
+          verification (<code>openid</code>, <code>email</code>, and <code>profile</code>) to verify
+          authorized personnel. It does not access personal Gmail, Google Drive, Calendar, or Contacts data.
+        </p>
+        <p>
+          <strong>Important:</strong> Before signing in for the first time, users must read and agree to our
+          <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.
+        </p>
+        <p>
+          Support contact: <a href="mailto:sankhyayan@gmail.com">sankhyayan@gmail.com</a> ·
+          <a href="mailto:racforge@gmail.com">racforge@gmail.com</a>
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -324,11 +324,13 @@ function TrainingWorkspace() {
     await signOut(auth);
   };
 
-  if (currentPath === '/privacy') {
+  const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
+
+  if (normalizedPath === '/privacy' || normalizedPath === '/privacy.html') {
     return <LegalPage page="privacy" onNavigate={navigateTo} />;
   }
 
-  if (currentPath === '/terms') {
+  if (normalizedPath === '/terms' || normalizedPath === '/terms.html') {
     return <LegalPage page="terms" onNavigate={navigateTo} />;
   }
 
@@ -640,13 +642,38 @@ function TrainingWorkspace() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-slate-200">
-          <p className="text-xs font-medium text-slate-900 truncate">
-            {user.displayName || user.email}
-          </p>
-          <p className="text-xs text-slate-500 truncate mt-0.5">
-            {user.email} · {roleSummary}
-          </p>
+        <div className="p-4 border-t border-slate-200 space-y-2.5">
+          <div>
+            <p className="text-xs font-medium text-slate-900 truncate">
+              {user.displayName || user.email}
+            </p>
+            <p className="text-xs text-slate-500 truncate mt-0.5">
+              {user.email} · {roleSummary}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 pt-1 text-xs text-slate-500">
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/privacy');
+              }}
+              className="hover:text-[#0D2C45] underline"
+            >
+              Privacy Policy
+            </a>
+            <span aria-hidden="true">·</span>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/terms');
+              }}
+              className="hover:text-[#0D2C45] underline"
+            >
+              Terms
+            </a>
+          </div>
         </div>
       </aside>
 

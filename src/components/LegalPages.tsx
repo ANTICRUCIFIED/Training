@@ -6,7 +6,8 @@ export const PrivacyPolicyContent: React.FC = () => (
   <>
     <header className="pb-6 border-b border-slate-200">
       <p className="text-xs font-medium text-slate-500">
-        RAC Forge Pvt. Ltd. · Effective Date: November 19, 2026
+        Application: RAC Forge Pvt. Ltd. training portal (https://training.racforge.com) · Effective
+        Date: November 19, 2026
       </p>
       <h1 className="font-display text-3xl font-bold text-[#0D2C45] mt-2">Privacy Policy</h1>
       <p className="text-sm text-slate-600 leading-relaxed mt-3">
@@ -19,97 +20,248 @@ export const PrivacyPolicyContent: React.FC = () => (
         >
           https://www.racforge.com
         </a>
-        ) collects, uses, stores, and protects information obtained when you sign in using Google
-        Authentication and use the RAC Forge Training Portal.
+        ) accesses, uses, stores, protects, retains, deletes, and discloses information when you use
+        the <strong>RAC Forge Pvt. Ltd. training portal</strong> hosted at{' '}
+        <a
+          href="https://training.racforge.com"
+          className="text-[#1F6E82] hover:underline font-medium"
+        >
+          https://training.racforge.com
+        </a>
+        , including Google user data obtained via Google OAuth 2.0 and Firebase Authentication.
       </p>
     </header>
 
-    <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">
-        1. Information We Collect via Google OAuth
-      </h2>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">1. Google User Data We Access</h2>
       <p className="text-sm text-slate-600 leading-relaxed">
-        When you sign in with Google, RAC Forge Pvt. Ltd. uses Firebase Authentication to request
-        only basic identity scopes (<span className="font-mono text-xs">openid</span>,{' '}
-        <span className="font-mono text-xs">email</span>, and{' '}
-        <span className="font-mono text-xs">profile</span>). Specifically, we receive:
+        When you sign in with Google, the <strong>RAC Forge Pvt. Ltd. training portal</strong>{' '}
+        requests only standard, non-sensitive identity scopes via Firebase Authentication:
       </p>
-      <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
-        <li>Your verified Google email address.</li>
-        <li>Your display name as configured on your Google account.</li>
-        <li>Your Google account profile image URL (if available).</li>
-      </ul>
+      <div className="overflow-x-auto border border-slate-200 rounded-lg">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-[#0D2C45]">
+              <th className="py-2.5 px-3 font-semibold">OAuth Scope</th>
+              <th className="py-2.5 px-3 font-semibold">Google User Data Accessed</th>
+              <th className="py-2.5 px-3 font-semibold">Purpose in Application</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-slate-600">
+            <tr>
+              <td className="py-2.5 px-3 font-mono text-slate-900">openid</td>
+              <td className="py-2.5 px-3">Unique Google / Firebase user identifier (UID)</td>
+              <td className="py-2.5 px-3">
+                Authenticate your session and link training records to your account.
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2.5 px-3 font-mono text-slate-900">email</td>
+              <td className="py-2.5 px-3">
+                Verified Google email address and verification status
+              </td>
+              <td className="py-2.5 px-3">
+                Confirm portal authorization against organization allowlists.
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2.5 px-3 font-mono text-slate-900">profile</td>
+              <td className="py-2.5 px-3">Display name and profile picture URL (if set)</td>
+              <td className="py-2.5 px-3">
+                Display your name in the portal and in internal completion reports.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p className="text-sm text-slate-600 leading-relaxed">
-        The RAC Forge Training Portal does not request access to your Gmail messages, personal
-        Google Drive files, Google Calendar, Contacts, or any other sensitive or restricted Google
-        Workspace scopes.
+        <strong>No Sensitive or Restricted Google API Scopes:</strong> The RAC Forge Pvt. Ltd.
+        training portal does <strong>not</strong> request, access, read, or modify your Gmail
+        messages, personal Google Drive files, Google Calendar, Contacts, Photos, or any other
+        Google Workspace data. Embedded training videos are administrator-supplied links and do not
+        access a learner&apos;s personal Google Drive via OAuth.
       </p>
     </section>
 
     <section className="space-y-2.5">
       <h2 className="text-lg font-semibold text-[#0D2C45]">
-        2. Training &amp; Activity Information
+        2. Additional Portal Activity Data We Collect
       </h2>
       <p className="text-sm text-slate-600 leading-relaxed">
-        For authorized team members granted portal access by a RAC Forge Pvt. Ltd. administrator, we
-        store training completion records, assessment scores, attempt counts, policy acceptance
-        timestamps, and module engagement duration so learners can progress through assigned
-        coursework and administrators can verify compliance.
+        Once an authorized user signs in and agrees to our Terms of Service and Privacy Policy, we
+        record learning activity required to operate the training portal:
       </p>
-    </section>
-
-    <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">3. How We Use Your Information</h2>
       <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
-        <li>To authenticate your identity and verify authorization with RAC Forge Pvt. Ltd.</li>
-        <li>To grant access strictly to the training curriculum assigned to your account.</li>
-        <li>To save your learning progress, assessment results, and first-time policy consent across sessions.</li>
+        <li>First-time legal agreement timestamp and policy version identifier.</li>
+        <li>Assigned training track permissions managed by RAC Forge Pvt. Ltd. administrators.</li>
         <li>
-          To provide aggregate and per-learner completion reporting to authorized RAC Forge Pvt.
-          Ltd. administrators.
+          Module completion state, quiz scores, attempt counts, and active watch duration for
+          compliance verification.
         </li>
       </ul>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">3. How We Use Google User Data</h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        RAC Forge Pvt. Ltd. uses Google user data strictly to provide and maintain the core
+        functionality of the <strong>RAC Forge Pvt. Ltd. training portal</strong>:
+      </p>
+      <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
+        <li>Authenticating authorized personnel and preventing unauthorized access.</li>
+        <li>Granting access solely to the training curriculum assigned to your email address.</li>
+        <li>Persisting learner progress, quiz outcomes, and policy consent across sessions.</li>
+        <li>
+          Providing completion and compliance reporting to authorized RAC Forge Pvt. Ltd.
+          administrators.
+        </li>
+      </ul>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        We do <strong>not</strong> use Google user data for targeted advertising, behavioral
+        profiling, data brokerage, marketing campaigns, creditworthiness assessments, or training
+        generalized AI or machine learning models.
+      </p>
     </section>
 
     <section className="space-y-2.5">
       <h2 className="text-lg font-semibold text-[#0D2C45]">
         4. Google API Services User Data Policy &amp; Limited Use
       </h2>
-      <p className="text-sm text-slate-600 leading-relaxed">
-        RAC Forge Pvt. Ltd.&apos;s use and transfer to any other app of information received from
-        Google APIs adheres to the Google API Services User Data Policy, including the Limited Use
-        requirements. We do not sell your personal data, share it with data brokers, or use Google
-        user data for advertising or marketing purposes.
-      </p>
-    </section>
-
-    <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">
-        5. Data Storage, Security &amp; Retention
-      </h2>
-      <p className="text-sm text-slate-600 leading-relaxed">
-        All user profile and training progress data is encrypted in transit via HTTPS/TLS and stored
-        in Google Cloud Firestore with strict role-based security rules. Data is retained only for
-        as long as RAC Forge Pvt. Ltd. maintains your portal access or as required for internal
-        compliance and regulatory auditing.
-      </p>
-    </section>
-
-    <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">
-        6. Data Deletion &amp; Contact Information
-      </h2>
-      <p className="text-sm text-slate-600 leading-relaxed">
-        You may revoke the RAC Forge Training Portal&apos;s access to your Google account at any
-        time from your Google Account permissions settings. To request export or deletion of your
-        stored profile and training records, contact RAC Forge Pvt. Ltd. at{' '}
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed">
+        <strong>Limited Use Compliance:</strong> RAC Forge Pvt. Ltd. training portal&apos;s use and
+        transfer to any other app of information received from Google APIs will adhere to the{' '}
         <a
-          href="mailto:racforge@gmail.com"
+          href="https://developers.google.com/terms/api-services-user-data-policy"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-[#1F6E82] hover:underline font-medium"
         >
-          racforge@gmail.com
-        </a>{' '}
-        or visit{' '}
+          Google API Services User Data Policy
+        </a>
+        , including the Limited Use requirements.
+      </div>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">
+        5. Sharing, Transfer, and Disclosure of Google User Data
+      </h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        <strong>
+          RAC Forge Pvt. Ltd. does not sell, rent, trade, or transfer Google user data to third
+          parties
+        </strong>{' '}
+        for advertising or any purpose outside operating the training portal. Access is strictly
+        restricted to:
+      </p>
+      <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
+        <li>
+          <strong>Google Cloud / Firebase (Infrastructure Sub-processor):</strong> Used solely to
+          authenticate sessions (Firebase Authentication) and securely host portal records (Cloud
+          Firestore).
+        </li>
+        <li>
+          <strong>Authorized RAC Forge Pvt. Ltd. Administrators:</strong> Designated company
+          administrators can inspect learner names, emails, and training progress solely for
+          workforce onboarding and compliance auditing. Learners cannot view other learners&apos;
+          data.
+        </li>
+        <li>
+          <strong>Legal Obligations:</strong> Only if strictly required by applicable law, court
+          order, or enforceable governmental demand.
+        </li>
+      </ul>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">
+        6. Data Protection &amp; Security Mechanisms
+      </h2>
+      <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
+        <li>
+          <strong>Encryption in Transit:</strong> All traffic to{' '}
+          <span className="font-mono text-xs">https://training.racforge.com</span> and Firebase is
+          protected via HTTPS / TLS 1.2+.
+        </li>
+        <li>
+          <strong>Encryption at Rest:</strong> Stored profile and training records are encrypted at
+          rest using Google Cloud AES-256 encryption.
+        </li>
+        <li>
+          <strong>Server-Enforced Access Controls:</strong> Firestore Security Rules enforce a
+          default-deny posture, verify Google email claims (
+          <span className="font-mono text-xs">email_verified == true</span>), and isolate personal
+          records strictly to the owner and authorized administrators.
+        </li>
+        <li>
+          <strong>Zero Password Handling:</strong> Google OAuth handles authentication; RAC Forge
+          Pvt. Ltd. never sees or stores your Google password.
+        </li>
+      </ul>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">7. Data Retention &amp; Deletion</h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        <strong>Retention:</strong> Identity profile fields and training progress are retained while
+        your account remains authorized in the portal, and for up to <strong>12 months</strong>{' '}
+        after access revocation or offboarding when required for internal compliance auditing,
+        unless earlier deletion is requested.
+      </p>
+      <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1.5">
+        <li>
+          <strong>Revoke Google Access:</strong> Revoke portal access anytime at{' '}
+          <a
+            href="https://myaccount.google.com/permissions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#1F6E82] hover:underline font-medium"
+          >
+            https://myaccount.google.com/permissions
+          </a>
+          .
+        </li>
+        <li>
+          <strong>Permanent Deletion or Export Request:</strong> Email{' '}
+          <a
+            href="mailto:sankhyayan@gmail.com"
+            className="text-[#1F6E82] hover:underline font-medium"
+          >
+            sankhyayan@gmail.com
+          </a>{' '}
+          or{' '}
+          <a
+            href="mailto:racforge@gmail.com"
+            className="text-[#1F6E82] hover:underline font-medium"
+          >
+            racforge@gmail.com
+          </a>{' '}
+          with the subject{' '}
+          <em>&ldquo;Data Deletion Request — RAC Forge Pvt. Ltd. training portal&rdquo;</em>.
+          Verified requests are completed within <strong>15 business days</strong>, permanently
+          deleting profile, allowlist, progress, and telemetry records from Firestore and Firebase
+          Authentication.
+        </li>
+      </ul>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">
+        8. Changes to This Privacy Policy &amp; User Notification
+      </h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        We keep this Privacy Policy current. If RAC Forge Pvt. Ltd. changes how the{' '}
+        <strong>RAC Forge Pvt. Ltd. training portal</strong> accesses, uses, stores, or shares
+        Google user data, we will update the Effective Date and Policy Version, display an in-portal
+        re-consent notification on next sign-in, and notify authorized users via email before
+        material changes take effect.
+      </p>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">9. Contact Information</h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        RAC Forge Pvt. Ltd. · Website:{' '}
         <a
           href="https://www.racforge.com"
           target="_blank"
@@ -117,6 +269,20 @@ export const PrivacyPolicyContent: React.FC = () => (
           className="text-[#1F6E82] hover:underline font-medium"
         >
           https://www.racforge.com
+        </a>{' '}
+        · Support &amp; Privacy Contact:{' '}
+        <a
+          href="mailto:sankhyayan@gmail.com"
+          className="text-[#1F6E82] hover:underline font-medium"
+        >
+          sankhyayan@gmail.com
+        </a>{' '}
+        /{' '}
+        <a
+          href="mailto:racforge@gmail.com"
+          className="text-[#1F6E82] hover:underline font-medium"
+        >
+          racforge@gmail.com
         </a>
         .
       </p>
@@ -128,12 +294,20 @@ export const TermsOfServiceContent: React.FC = () => (
   <>
     <header className="pb-6 border-b border-slate-200">
       <p className="text-xs font-medium text-slate-500">
-        RAC Forge Pvt. Ltd. · Effective Date: November 19, 2026
+        Application: RAC Forge Pvt. Ltd. training portal (https://training.racforge.com) · Effective
+        Date: November 19, 2026
       </p>
       <h1 className="font-display text-3xl font-bold text-[#0D2C45] mt-2">Terms of Service</h1>
       <p className="text-sm text-slate-600 leading-relaxed mt-3">
-        By accessing or signing in to the RAC Forge Training Portal operated by{' '}
-        <strong>RAC Forge Pvt. Ltd.</strong> (
+        By accessing or signing in to the <strong>RAC Forge Pvt. Ltd. training portal</strong>{' '}
+        hosted at{' '}
+        <a
+          href="https://training.racforge.com"
+          className="text-[#1F6E82] hover:underline font-medium"
+        >
+          https://training.racforge.com
+        </a>{' '}
+        and operated by <strong>RAC Forge Pvt. Ltd.</strong> (
         <a
           href="https://www.racforge.com"
           target="_blank"
@@ -142,8 +316,7 @@ export const TermsOfServiceContent: React.FC = () => (
         >
           https://www.racforge.com
         </a>
-        ), you agree to be bound by these Terms of Service and all applicable organizational
-        policies.
+        ), you agree to be bound by these Terms of Service and our Privacy Policy.
       </p>
     </header>
 
@@ -152,21 +325,21 @@ export const TermsOfServiceContent: React.FC = () => (
         1. Authorized Access &amp; Account Eligibility
       </h2>
       <p className="text-sm text-slate-600 leading-relaxed">
-        The RAC Forge Training Portal is a private workforce learning and compliance portal operated
-        by RAC Forge Pvt. Ltd. Access to training modules and assessments is restricted strictly to
-        users whose verified Google email address has been authorized by a RAC Forge Pvt. Ltd.
-        administrator. You are responsible for maintaining the security of your Google account
-        credentials.
+        The RAC Forge Pvt. Ltd. training portal is a private workforce learning and compliance
+        portal operated by RAC Forge Pvt. Ltd. Access to training modules and assessments is
+        restricted strictly to users whose verified Google email address has been authorized by a
+        RAC Forge Pvt. Ltd. administrator. You are responsible for maintaining the security of your
+        Google Account credentials.
       </p>
     </section>
 
     <section className="space-y-2.5">
       <h2 className="text-lg font-semibold text-[#0D2C45]">2. Acceptable Use</h2>
       <p className="text-sm text-slate-600 leading-relaxed">
-        You agree to use the RAC Forge Training Portal solely for completing assigned training
-        coursework and assessments. You must not attempt to bypass access controls, inspect
-        unauthorized records, share login sessions, redistribute training materials externally, or
-        disrupt platform availability.
+        You agree to use the RAC Forge Pvt. Ltd. training portal solely for completing assigned
+        training coursework and assessments. You must not attempt to bypass role-based access
+        controls, inspect unauthorized records, share login sessions, redistribute training
+        materials externally, or disrupt platform availability.
       </p>
     </section>
 
@@ -183,7 +356,18 @@ export const TermsOfServiceContent: React.FC = () => (
     </section>
 
     <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">4. Suspension &amp; Termination</h2>
+      <h2 className="text-lg font-semibold text-[#0D2C45]">
+        4. Privacy &amp; Google Authentication
+      </h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        Your use of Google Sign-In and all personal data collected through this portal is governed
+        by our Privacy Policy, including our adherence to the Google API Services User Data Policy
+        and Limited Use requirements.
+      </p>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">5. Suspension &amp; Termination</h2>
       <p className="text-sm text-slate-600 leading-relaxed">
         RAC Forge Pvt. Ltd. administrators may modify, suspend, or revoke your portal access at any
         time, including upon role changes or termination of employment or engagement with RAC Forge
@@ -193,7 +377,7 @@ export const TermsOfServiceContent: React.FC = () => (
 
     <section className="space-y-2.5">
       <h2 className="text-lg font-semibold text-[#0D2C45]">
-        5. Disclaimer &amp; Limitation of Liability
+        6. Disclaimer &amp; Limitation of Liability
       </h2>
       <p className="text-sm text-slate-600 leading-relaxed">
         The portal is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. To
@@ -204,16 +388,32 @@ export const TermsOfServiceContent: React.FC = () => (
     </section>
 
     <section className="space-y-2.5">
-      <h2 className="text-lg font-semibold text-[#0D2C45]">6. Contact</h2>
+      <h2 className="text-lg font-semibold text-[#0D2C45]">7. Updates to These Terms</h2>
+      <p className="text-sm text-slate-600 leading-relaxed">
+        RAC Forge Pvt. Ltd. may update these Terms of Service from time to time. Material updates
+        will be reflected with a new Effective Date and Policy Version, requiring re-acknowledgement
+        on next sign-in.
+      </p>
+    </section>
+
+    <section className="space-y-2.5">
+      <h2 className="text-lg font-semibold text-[#0D2C45]">8. Contact</h2>
       <p className="text-sm text-slate-600 leading-relaxed">
         For questions regarding these Terms of Service, please contact RAC Forge Pvt. Ltd. at{' '}
+        <a
+          href="mailto:sankhyayan@gmail.com"
+          className="text-[#1F6E82] hover:underline font-medium"
+        >
+          sankhyayan@gmail.com
+        </a>{' '}
+        or{' '}
         <a
           href="mailto:racforge@gmail.com"
           className="text-[#1F6E82] hover:underline font-medium"
         >
           racforge@gmail.com
         </a>{' '}
-        or visit{' '}
+        (
         <a
           href="https://www.racforge.com"
           target="_blank"
@@ -222,7 +422,7 @@ export const TermsOfServiceContent: React.FC = () => (
         >
           https://www.racforge.com
         </a>
-        .
+        ).
       </p>
     </section>
   </>
@@ -312,6 +512,13 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, onNavigate }) => {
             >
               www.racforge.com
             </a>
+            <span aria-hidden="true">·</span>
+            <span>
+              Support:{' '}
+              <a href="mailto:sankhyayan@gmail.com" className="hover:text-slate-900">
+                sankhyayan@gmail.com
+              </a>
+            </span>
           </div>
           <div className="flex items-center gap-6">
             <a

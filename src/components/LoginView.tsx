@@ -146,7 +146,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         >
           <div className="lg:col-span-7 flex flex-col justify-center">
             <p className="text-xs font-semibold text-[#1F6E82] tracking-wide mb-3">
-              RAC Forge Pvt. Ltd. · Authorized Training Portal
+              RAC Forge Pvt. Ltd. training portal
             </p>
             <h1
               className="font-display text-4xl lg:text-5xl font-bold tracking-tight text-[#0D2C45] leading-[1.12] mb-5"
@@ -386,12 +386,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
 
             <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Questions or data requests</span>
+              <span>Support &amp; privacy requests</span>
               <a
-                href="mailto:racforge@gmail.com"
+                href="mailto:sankhyayan@gmail.com"
                 className="font-medium text-[#0D2C45] hover:text-[#1F6E82]"
               >
-                racforge@gmail.com
+                sankhyayan@gmail.com
               </a>
             </div>
           </div>
@@ -415,6 +415,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <span aria-hidden="true">·</span>
             <span>
               Support:{' '}
+              <a href="mailto:sankhyayan@gmail.com" className="hover:text-slate-900">
+                sankhyayan@gmail.com
+              </a>{' '}
+              /{' '}
               <a href="mailto:racforge@gmail.com" className="hover:text-slate-900">
                 racforge@gmail.com
               </a>
